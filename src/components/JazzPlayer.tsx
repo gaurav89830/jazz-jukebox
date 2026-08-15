@@ -3,8 +3,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { background } from "@/config/player";
 import { BackgroundPicture } from "@/components/BackgroundPicture";
+import { SettingsPanel } from "@/components/SettingsPanel";
 import { TrackDial } from "@/components/TrackDial";
 import { VinylRecord } from "@/components/VinylRecord";
+import { usePlayerSettings } from "@/hooks/usePlayerSettings";
 import { useRecordPlayback } from "@/hooks/useRecordPlayback";
 
 function formatTime(seconds: number) {
@@ -15,6 +17,7 @@ function formatTime(seconds: number) {
 }
 
 export function JazzPlayer() {
+  const { settings, updateSetting } = usePlayerSettings();
   const {
     audioRef,
     playing,
@@ -31,22 +34,28 @@ export function JazzPlayer() {
     beginSeekScrub,
     scrubTo,
     endSeekScrub,
-  } = useRecordPlayback();
+  } = useRecordPlayback({
+    volume: settings.volume,
+    staticLevel: settings.staticLevel,
+  });
   const seekBarRef = useRef<HTMLDivElement>(null);
   const lastScrubRef = useRef({ t: 0, seconds: 0 });
   const [isSeeking, setIsSeeking] = useState(false);
   const [seekPreviewSeconds, setSeekPreviewSeconds] = useState(0);
   const [dialVisible, setDialVisible] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const dialHideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const bumpDialActivity = useCallback(() => {
     if (dialHideTimerRef.current) {
       clearTimeout(dialHideTimerRef.current);
+      dialHideTimerRef.current = null;
     }
+    if (!settings.autohideJuke) return;
     dialHideTimerRef.current = setTimeout(() => {
       setDialVisible(false);
     }, 10000);
-  }, []);
+  }, [settings.autohideJuke]);
 
   const showDial = useCallback(() => {
     setDialVisible(true);
@@ -60,6 +69,18 @@ export function JazzPlayer() {
     }
     setDialVisible(false);
   }, []);
+
+  const toggleDial = useCallback(() => {
+    if (dialVisible) {
+      hideDial();
+    } else {
+      showDial();
+    }
+  }, [dialVisible, hideDial, showDial]);
+
+  useEffect(() => {
+    if (dialVisible) bumpDialActivity();
+  }, [bumpDialActivity, dialVisible, settings.autohideJuke]);
 
   useEffect(() => {
     return () => {
@@ -136,6 +157,14 @@ export function JazzPlayer() {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.repeat) return;
 
+      if (event.code === "Escape") {
+        event.preventDefault();
+        setSettingsOpen((open) => !open);
+        return;
+      }
+
+      if (settingsOpen) return;
+
       if (event.code === "Space") {
         event.preventDefault();
         void toggleCenter();
@@ -181,9 +210,13 @@ export function JazzPlayer() {
     hideDial,
     nextTrack,
     previousTrack,
+    settingsOpen,
     showDial,
     toggleCenter,
   ]);
+
+  const vinylOnLeft = settings.vinylDisplay === "left";
+  const vinylOnRight = settings.vinylDisplay === "right";
 
   return (
     <div
@@ -204,22 +237,36 @@ export function JazzPlayer() {
 
       <audio ref={audioRef} preload="none" />
 
-      <section className="player-panel absolute bottom-7 left-6 z-20 sm:bottom-10 sm:left-10">
-        <div className="player-panel__vinyl">
-          <VinylRecord
-            className="player-panel__record"
-            rate={rate}
-            playing={playing}
-            onToggle={() => void toggleCenter()}
-          />
-        </div>
+      <section
+        className={`player-panel absolute bottom-7 left-6 z-20 sm:bottom-10 sm:left-10 ${
+          vinylOnLeft ? "" : "player-panel--no-vinyl"
+        }`}
+      >
+        {vinylOnLeft ? (
+          <div className="player-panel__vinyl">
+            <VinylRecord
+              className="player-panel__record"
+              rate={rate}
+              playing={playing}
+              onToggle={() => void toggleCenter()}
+            />
+          </div>
+        ) : null}
         <div className="player-panel__meta">
           <p className="text-[0.625rem] font-bold uppercase tracking-[0.22em] text-[#e4c995]">
             Now Playing
           </p>
-          <h1 className="mt-1.5 font-sans text-lg font-black leading-tight tracking-[-0.035em] text-[#f6ead6] sm:text-xl">
+          <button
+            type="button"
+            tabIndex={-1}
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={toggleDial}
+            className="player-panel__title mt-1.5 font-sans text-lg font-black leading-tight tracking-[-0.035em] text-[#f6ead6] sm:text-xl"
+            aria-expanded={dialVisible}
+            aria-label={`${currentTrack?.displayTitle ?? "Noir Jazz"} — toggle track list`}
+          >
             {currentTrack?.displayTitle ?? "Noir Jazz"}
-          </h1>
+          </button>
         </div>
 
         <div
@@ -281,6 +328,17 @@ export function JazzPlayer() {
         </div>
       </section>
 
+      {vinylOnRight ? (
+        <div className="player-vinyl-float">
+          <VinylRecord
+            className="player-vinyl-float__record"
+            rate={rate}
+            playing={playing}
+            onToggle={() => void toggleCenter()}
+          />
+        </div>
+      ) : null}
+
       <TrackDial
         tracks={tracks}
         currentIndex={currentTrackIndex}
@@ -291,6 +349,13 @@ export function JazzPlayer() {
           bumpDialActivity();
           void goToTrackIndex(index);
         }}
+      />
+
+      <SettingsPanel
+        open={settingsOpen}
+        settings={settings}
+        onChange={updateSetting}
+        onClose={() => setSettingsOpen(false)}
       />
     </div>
   );

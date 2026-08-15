@@ -85,13 +85,24 @@ function resolveDuration(audio: HTMLAudioElement, catalogDuration: number) {
     : catalogDuration;
 }
 
-export function useRecordPlayback() {
+const CRACKLE_BASE = 0.0192;
+
+type RecordPlaybackOptions = {
+  volume: number;
+  staticLevel: number;
+};
+
+export function useRecordPlayback({
+  volume,
+  staticLevel,
+}: RecordPlaybackOptions) {
   const audioRef = useRef<HTMLAudioElement>(null);
   const contextRef = useRef<AudioContext | null>(null);
   const crackleRef = useRef<GainNode | null>(null);
   const scrubRef = useRef<ScrubBus | null>(null);
   const scrubbingRef = useRef(false);
   const rateRef = useRef(0);
+  const staticLevelRef = useRef(staticLevel);
   const runningRef = useRef(false);
   const selectedTrackRef = useRef<Track | null>(null);
   const rampTokenRef = useRef(0);
@@ -124,9 +135,30 @@ export function useRecordPlayback() {
 
     const ctx = contextRef.current;
     if (ctx && crackleRef.current) {
-      crackleRef.current.gain.setTargetAtTime(next * 0.035, ctx.currentTime, 0.04);
+      crackleRef.current.gain.setTargetAtTime(
+        next * CRACKLE_BASE * staticLevelRef.current,
+        ctx.currentTime,
+        0.04,
+      );
     }
   }, []);
+
+  useEffect(() => {
+    staticLevelRef.current = staticLevel;
+    const ctx = contextRef.current;
+    if (ctx && crackleRef.current) {
+      crackleRef.current.gain.setTargetAtTime(
+        rateRef.current * CRACKLE_BASE * staticLevel,
+        ctx.currentTime,
+        0.05,
+      );
+    }
+  }, [staticLevel]);
+
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (audio) audio.volume = Math.max(0, Math.min(1, volume));
+  }, [volume]);
 
   const rampTo = useCallback(
     (target: number, duration: number) => {
@@ -331,7 +363,7 @@ export function useRecordPlayback() {
       }
 
       if (ctx && crackleRef.current) {
-        const baseline = rateRef.current * 0.035;
+        const baseline = rateRef.current * CRACKLE_BASE * staticLevelRef.current;
         const now = ctx.currentTime;
         crackleRef.current.gain.cancelScheduledValues(now);
         crackleRef.current.gain.setValueAtTime(baseline + 0.012, now);
@@ -389,7 +421,7 @@ export function useRecordPlayback() {
 
     const selected = chooseRandomTrack();
     audio.src = getTrackUrl(selected);
-    audio.volume = 0.72;
+    audio.volume = Math.max(0, Math.min(1, volume));
     audio.playbackRate = 1;
     setPitchFollowsSpeed(audio);
 

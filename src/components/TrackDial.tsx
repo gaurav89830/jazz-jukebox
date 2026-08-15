@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect, useRef } from "react";
 import type { Track } from "@/config/player";
 
 type TrackDialProps = {
@@ -30,39 +29,6 @@ export function TrackDial({
   onActivity,
   onSelectIndex,
 }: TrackDialProps) {
-  const wheelCarryRef = useRef(0);
-
-  useEffect(() => {
-    if (!visible || tracks.length === 0) return;
-
-    const onWheel = (event: WheelEvent) => {
-      event.preventDefault();
-      onActivity();
-
-      const delta =
-        Math.abs(event.deltaY) > Math.abs(event.deltaX)
-          ? event.deltaY
-          : event.deltaX;
-      wheelCarryRef.current += delta;
-
-      const threshold = 42;
-      if (Math.abs(wheelCarryRef.current) < threshold) return;
-
-      const direction = wheelCarryRef.current > 0 ? 1 : -1;
-      wheelCarryRef.current = 0;
-      const nextIndex =
-        (currentIndex + direction + tracks.length) % tracks.length;
-      onSelectIndex(nextIndex);
-    };
-
-    window.addEventListener("wheel", onWheel, { passive: false });
-    return () => window.removeEventListener("wheel", onWheel);
-  }, [currentIndex, onActivity, onSelectIndex, tracks.length, visible]);
-
-  useEffect(() => {
-    wheelCarryRef.current = 0;
-  }, [currentIndex]);
-
   if (currentIndex < 0 || tracks.length === 0) return null;
 
   const visibleTracks = tracks
