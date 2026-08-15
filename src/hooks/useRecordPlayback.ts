@@ -210,28 +210,15 @@ export function useRecordPlayback() {
     }
   }, [pause, start]);
 
-  const moveTrack = useCallback(
-    async (direction: -1 | 1) => {
+  const loadAndPlayTrack = useCallback(
+    async (selected: Track) => {
       const audio = audioRef.current;
-      if (!audio) return;
-
-      const current = selectedTrackRef.current ?? chooseRandomTrack();
-      const currentIndex = tracks.findIndex((track) => track.id === current.id);
-      const nextIndex = (currentIndex + direction + tracks.length) % tracks.length;
-      const selected = selectTrack(tracks[nextIndex]);
-      const shouldKeepPlaying = runningRef.current;
+      if (!audio || !(await prepare())) return;
 
       ++rampTokenRef.current;
       audio.pause();
       audio.src = getTrackUrl(selected);
       audio.load();
-
-      if (!shouldKeepPlaying) {
-        runningRef.current = false;
-        setPlaying(false);
-        setSpeed(0);
-        return;
-      }
 
       setSpeed(MIN_RATE);
       try {
@@ -245,11 +232,36 @@ export function useRecordPlayback() {
         setSpeed(0);
       }
     },
-    [chooseRandomTrack, rampTo, selectTrack, setSpeed],
+    [prepare, rampTo, setSpeed],
+  );
+
+  const goToTrackIndex = useCallback(
+    async (index: number) => {
+      const normalized =
+        ((index % tracks.length) + tracks.length) % tracks.length;
+      const selected = selectTrack(tracks[normalized]);
+      await loadAndPlayTrack(selected);
+    },
+    [loadAndPlayTrack, selectTrack],
+  );
+
+  const moveTrack = useCallback(
+    async (direction: -1 | 1) => {
+      const current = selectedTrackRef.current ?? chooseRandomTrack();
+      const currentIndex = tracks.findIndex((track) => track.id === current.id);
+      const nextIndex =
+        (currentIndex + direction + tracks.length) % tracks.length;
+      await goToTrackIndex(nextIndex);
+    },
+    [chooseRandomTrack, goToTrackIndex],
   );
 
   const nextTrack = useCallback(() => moveTrack(1), [moveTrack]);
   const previousTrack = useCallback(() => moveTrack(-1), [moveTrack]);
+
+  const currentTrackIndex = currentTrack
+    ? tracks.findIndex((track) => track.id === currentTrack.id)
+    : -1;
 
   const setScrubLevel = useCallback((level: number) => {
     const ctx = contextRef.current;
@@ -415,11 +427,14 @@ export function useRecordPlayback() {
     playing,
     rate,
     currentTrack,
+    currentTrackIndex,
+    tracks,
     elapsedSeconds,
     durationSeconds: currentTrack?.durationSeconds ?? 0,
     toggleCenter,
     nextTrack,
     previousTrack,
+    goToTrackIndex,
     beginSeekScrub,
     scrubTo,
     endSeekScrub,

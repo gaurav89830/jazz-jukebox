@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { background } from "@/config/player";
 import { BackgroundPicture } from "@/components/BackgroundPicture";
+import { TrackDial } from "@/components/TrackDial";
 import { VinylRecord } from "@/components/VinylRecord";
 import { useRecordPlayback } from "@/hooks/useRecordPlayback";
 
@@ -19,11 +20,14 @@ export function JazzPlayer() {
     playing,
     rate,
     currentTrack,
+    currentTrackIndex,
+    tracks,
     elapsedSeconds,
     durationSeconds,
     toggleCenter,
     nextTrack,
     previousTrack,
+    goToTrackIndex,
     beginSeekScrub,
     scrubTo,
     endSeekScrub,
@@ -32,6 +36,38 @@ export function JazzPlayer() {
   const lastScrubRef = useRef({ t: 0, seconds: 0 });
   const [isSeeking, setIsSeeking] = useState(false);
   const [seekPreviewSeconds, setSeekPreviewSeconds] = useState(0);
+  const [dialVisible, setDialVisible] = useState(false);
+  const dialHideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const bumpDialActivity = useCallback(() => {
+    if (dialHideTimerRef.current) {
+      clearTimeout(dialHideTimerRef.current);
+    }
+    dialHideTimerRef.current = setTimeout(() => {
+      setDialVisible(false);
+    }, 10000);
+  }, []);
+
+  const showDial = useCallback(() => {
+    setDialVisible(true);
+    bumpDialActivity();
+  }, [bumpDialActivity]);
+
+  const hideDial = useCallback(() => {
+    if (dialHideTimerRef.current) {
+      clearTimeout(dialHideTimerRef.current);
+      dialHideTimerRef.current = null;
+    }
+    setDialVisible(false);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (dialHideTimerRef.current) {
+        clearTimeout(dialHideTimerRef.current);
+      }
+    };
+  }, []);
 
   const displayedSeconds = isSeeking ? seekPreviewSeconds : elapsedSeconds;
   const progress =
@@ -98,16 +134,56 @@ export function JazzPlayer() {
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.code !== "Space" || event.repeat) return;
-      event.preventDefault();
-      void toggleCenter();
+      if (event.repeat) return;
+
+      if (event.code === "Space") {
+        event.preventDefault();
+        void toggleCenter();
+        return;
+      }
+
+      if (event.code === "ArrowLeft") {
+        event.preventDefault();
+        showDial();
+        return;
+      }
+
+      if (event.code === "ArrowRight") {
+        if (!dialVisible) return;
+        event.preventDefault();
+        hideDial();
+        return;
+      }
+
+      if (event.code === "ArrowUp") {
+        if (!dialVisible) return;
+        event.preventDefault();
+        bumpDialActivity();
+        void previousTrack();
+        return;
+      }
+
+      if (event.code === "ArrowDown") {
+        if (!dialVisible) return;
+        event.preventDefault();
+        bumpDialActivity();
+        void nextTrack();
+      }
     };
 
     window.addEventListener("keydown", handleKeyDown, { capture: true });
     return () => {
       window.removeEventListener("keydown", handleKeyDown, { capture: true });
     };
-  }, [toggleCenter]);
+  }, [
+    bumpDialActivity,
+    dialVisible,
+    hideDial,
+    nextTrack,
+    previousTrack,
+    showDial,
+    toggleCenter,
+  ]);
 
   return (
     <div
@@ -204,6 +280,18 @@ export function JazzPlayer() {
           </span>
         </div>
       </section>
+
+      <TrackDial
+        tracks={tracks}
+        currentIndex={currentTrackIndex}
+        playing={playing}
+        visible={dialVisible}
+        onActivity={bumpDialActivity}
+        onSelectIndex={(index) => {
+          bumpDialActivity();
+          void goToTrackIndex(index);
+        }}
+      />
     </div>
   );
 }
