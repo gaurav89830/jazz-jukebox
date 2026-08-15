@@ -6,6 +6,7 @@ type VinylRecordProps = {
   rate: number;
   playing: boolean;
   onToggle: () => void;
+  className?: string;
 };
 
 const FULL_SPEED_DEG_PER_SEC = 286;
@@ -38,6 +39,7 @@ export function VinylRecord({
   rate,
   playing,
   onToggle,
+  className,
 }: VinylRecordProps) {
   const discRef = useRef<HTMLDivElement>(null);
   const angleRef = useRef(0);
@@ -78,7 +80,7 @@ export function VinylRecord({
       type="button"
       tabIndex={-1}
       onMouseDown={(event) => event.preventDefault()}
-      className="record-control relative size-16 touch-none select-none sm:size-20"
+      className={`record-control relative touch-none select-none ${className ?? "size-16 sm:size-20"}`}
       onClick={onToggle}
       aria-label={playing ? "Pause Noir Jazz" : "Play Noir Jazz"}
       aria-pressed={playing}

@@ -128,25 +128,27 @@ export function JazzPlayer() {
 
       <audio ref={audioRef} preload="none" />
 
-      <div className="absolute bottom-7 right-6 z-20 sm:bottom-10 sm:right-10">
-        <VinylRecord
-          rate={rate}
-          playing={playing}
-          onToggle={() => void toggleCenter()}
-        />
-      </div>
-
-      <section className="absolute bottom-7 left-6 z-20 w-[min(68vw,32rem)] sm:bottom-10 sm:left-10">
-        <p className="text-xs font-bold uppercase tracking-[0.24em] text-[#e4c995]">
-          Now Playing
-        </p>
-        <h1 className="mt-2 font-sans text-xl font-black leading-tight tracking-[-0.035em] text-[#f6ead6] sm:text-2xl">
-          {currentTrack?.displayTitle ?? "Noir Jazz"}
-        </h1>
+      <section className="player-panel absolute bottom-7 left-6 z-20 sm:bottom-10 sm:left-10">
+        <div className="player-panel__vinyl">
+          <VinylRecord
+            className="player-panel__record"
+            rate={rate}
+            playing={playing}
+            onToggle={() => void toggleCenter()}
+          />
+        </div>
+        <div className="player-panel__meta">
+          <p className="text-[0.625rem] font-bold uppercase tracking-[0.22em] text-[#e4c995]">
+            Now Playing
+          </p>
+          <h1 className="mt-1.5 font-sans text-lg font-black leading-tight tracking-[-0.035em] text-[#f6ead6] sm:text-xl">
+            {currentTrack?.displayTitle ?? "Noir Jazz"}
+          </h1>
+        </div>
 
         <div
           ref={seekBarRef}
-          className={`seek-bar-hit mt-5 w-80 max-w-full ${isSeeking ? "seek-bar-hit--seeking" : ""}`}
+          className={`player-panel__seek seek-bar-hit ${isSeeking ? "seek-bar-hit--seeking" : ""}`}
           role="slider"
           tabIndex={-1}
           aria-label="Track progress"
@@ -172,8 +174,8 @@ export function JazzPlayer() {
           </div>
         </div>
 
-        <div className="mt-3 flex w-80 max-w-full items-center justify-between text-[#f6ead6]">
-          <div className="flex items-center gap-3">
+        <div className="player-panel__controls flex items-end justify-between text-[#f6ead6]">
+          <div className="flex items-center gap-2">
             <button
               type="button"
               tabIndex={-1}
