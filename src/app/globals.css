@@ -44,13 +44,14 @@ body {
 
 .track-skip-button {
   display: inline-grid;
-  width: 2rem;
-  height: 2rem;
+  width: 1.75rem;
+  height: 1.75rem;
   padding: 0;
   place-items: center;
   border: 1px solid rgba(246, 234, 214, 0.38);
   border-radius: 50%;
   color: inherit;
+  font-size: 0.8rem;
   cursor: pointer;
   background: rgba(0, 0, 0, 0.28);
   transition:

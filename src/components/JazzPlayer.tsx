@@ -70,18 +70,16 @@ export function JazzPlayer() {
         />
       </div>
 
-      <section className="absolute bottom-7 left-6 z-20 w-[min(72vw,44rem)] sm:bottom-10 sm:left-10">
+      <section className="absolute bottom-7 left-6 z-20 w-[min(68vw,32rem)] sm:bottom-10 sm:left-10">
         <p className="text-xs font-bold uppercase tracking-[0.24em] text-[#e4c995]">
-          {currentTrack
-            ? `Track ${currentTrack.number.toString().padStart(2, "0")}`
-            : "Noir Jazz"}
+          Now Playing
         </p>
-        <h1 className="mt-2 font-sans text-3xl font-black leading-[0.95] tracking-[-0.045em] text-[#f6ead6] sm:text-5xl">
+        <h1 className="mt-2 font-sans text-xl font-black leading-tight tracking-[-0.035em] text-[#f6ead6] sm:text-2xl">
           {currentTrack?.displayTitle ?? "Noir Jazz"}
         </h1>
 
         <div
-          className="mt-5 h-px w-full overflow-hidden bg-[#f6ead6]/25"
+          className="mt-5 h-px w-80 max-w-full overflow-hidden bg-[#f6ead6]/25"
           role="progressbar"
           aria-label="Track progress"
           aria-valuemin={0}
@@ -94,26 +92,28 @@ export function JazzPlayer() {
           />
         </div>
 
-        <div className="mt-3 flex items-center gap-3 text-[#f6ead6]">
-          <button
-            type="button"
-            onClick={() => void previousTrack()}
-            className="track-skip-button"
-            aria-label="Previous track"
-            title="Previous track"
-          >
-            ←
-          </button>
-          <button
-            type="button"
-            onClick={() => void nextTrack()}
-            className="track-skip-button"
-            aria-label="Next track"
-            title="Next track"
-          >
-            →
-          </button>
-          <span className="ml-1 font-mono text-xs tracking-wide text-[#f6ead6]/75">
+        <div className="mt-3 flex w-80 max-w-full items-center justify-between text-[#f6ead6]">
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => void previousTrack()}
+              className="track-skip-button"
+              aria-label="Previous track"
+              title="Previous track"
+            >
+              ←
+            </button>
+            <button
+              type="button"
+              onClick={() => void nextTrack()}
+              className="track-skip-button"
+              aria-label="Next track"
+              title="Next track"
+            >
+              →
+            </button>
+          </div>
+          <span className="font-mono text-xs tracking-wide text-[#f6ead6]/75">
             {formatTime(elapsedSeconds)} / {formatTime(durationSeconds)}
           </span>
         </div>
