@@ -61,15 +61,21 @@ export function useRecordPlayback() {
   const [rate, setRate] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [currentTrack, setCurrentTrack] = useState<Track | null>(null);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+
+  const selectTrack = useCallback((selected: Track) => {
+    selectedTrackRef.current = selected;
+    setCurrentTrack(selected);
+    setElapsedSeconds(0);
+    return selected;
+  }, []);
 
   const chooseRandomTrack = useCallback(() => {
     if (selectedTrackRef.current) return selectedTrackRef.current;
 
     const selected = tracks[Math.floor(Math.random() * tracks.length)];
-    selectedTrackRef.current = selected;
-    setCurrentTrack(selected);
-    return selected;
-  }, []);
+    return selectTrack(selected);
+  }, [selectTrack]);
 
   const setSpeed = useCallback((speed: number) => {
     const next = Math.max(0, Math.min(1, speed));
@@ -166,6 +172,66 @@ export function useRecordPlayback() {
     }
   }, [pause, start]);
 
+  const moveTrack = useCallback(
+    async (direction: -1 | 1) => {
+      const audio = audioRef.current;
+      if (!audio) return;
+
+      const current = selectedTrackRef.current ?? chooseRandomTrack();
+      const currentIndex = tracks.findIndex((track) => track.id === current.id);
+      const nextIndex = (currentIndex + direction + tracks.length) % tracks.length;
+      const selected = selectTrack(tracks[nextIndex]);
+      const shouldKeepPlaying = runningRef.current;
+
+      ++rampTokenRef.current;
+      audio.pause();
+      audio.src = getTrackUrl(selected);
+      audio.load();
+
+      if (!shouldKeepPlaying) {
+        runningRef.current = false;
+        setPlaying(false);
+        setSpeed(0);
+        return;
+      }
+
+      setSpeed(MIN_RATE);
+      try {
+        await audio.play();
+        runningRef.current = true;
+        setPlaying(true);
+        await rampTo(1, 650);
+      } catch {
+        runningRef.current = false;
+        setPlaying(false);
+        setSpeed(0);
+      }
+    },
+    [chooseRandomTrack, rampTo, selectTrack, setSpeed],
+  );
+
+  const nextTrack = useCallback(() => moveTrack(1), [moveTrack]);
+  const previousTrack = useCallback(() => moveTrack(-1), [moveTrack]);
+
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    const updateElapsed = () => {
+      setElapsedSeconds(audio.currentTime);
+    };
+    const handleEnded = () => {
+      void nextTrack();
+    };
+
+    audio.addEventListener("timeupdate", updateElapsed);
+    audio.addEventListener("ended", handleEnded);
+    return () => {
+      audio.removeEventListener("timeupdate", updateElapsed);
+      audio.removeEventListener("ended", handleEnded);
+    };
+  }, [nextTrack]);
+
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
@@ -210,6 +276,10 @@ export function useRecordPlayback() {
     playing,
     rate,
     currentTrack,
+    elapsedSeconds,
+    durationSeconds: currentTrack?.durationSeconds ?? 0,
     toggleCenter,
+    nextTrack,
+    previousTrack,
   };
 }

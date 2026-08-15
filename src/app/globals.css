@@ -42,6 +42,32 @@ body {
   opacity: 1;
 }
 
+.track-skip-button {
+  display: inline-grid;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  place-items: center;
+  border: 1px solid rgba(246, 234, 214, 0.38);
+  border-radius: 50%;
+  color: inherit;
+  cursor: pointer;
+  background: rgba(0, 0, 0, 0.28);
+  transition:
+    border-color 160ms ease,
+    background-color 160ms ease;
+}
+
+.track-skip-button:hover {
+  border-color: rgba(246, 234, 214, 0.8);
+  background: rgba(0, 0, 0, 0.48);
+}
+
+.track-skip-button:focus-visible {
+  outline: 2px solid #fff3d6;
+  outline-offset: 2px;
+}
+
 .vinyl {
   position: relative;
   width: 100%;
