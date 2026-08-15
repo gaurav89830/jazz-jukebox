@@ -1,26 +1,132 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #140c07;
+  --foreground: #f6ead6;
+  --font-display: Palatino, "Palatino Linotype", "Book Antiqua", Georgia, serif;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: ui-sans-serif, system-ui, sans-serif;
+}
+
+.player-scene {
+  filter: grayscale(0);
+  transition: filter 900ms ease;
+}
+
+.player-scene--paused {
+  filter: grayscale(1);
+}
+
+.pause-vignette {
+  z-index: 30;
+  opacity: 0;
+  background: radial-gradient(
+    ellipse at center,
+    transparent 48%,
+    rgba(0, 0, 0, 0.18) 72%,
+    rgba(0, 0, 0, 0.58) 100%
+  );
+  transition: opacity 900ms ease;
+}
+
+.pause-vignette--visible {
+  opacity: 1;
+}
+
+.vinyl {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  contain: strict;
+  will-change: transform;
+  background:
+    radial-gradient(circle at 50% 50%, #1a1a1a 0 18%, #0a0a0a 19% 100%);
+  box-shadow:
+    0 8px 18px rgba(0, 0, 0, 0.45),
+    inset 0 0 0 3px #111,
+    inset 0 0 10px rgba(255, 255, 255, 0.06);
+}
+
+.record-control {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  cursor: pointer;
+  background: transparent;
+}
+
+.vinyl-grooves {
+  position: absolute;
+  inset: 8%;
+  border-radius: 50%;
+  background: repeating-radial-gradient(
+    circle at center,
+    rgba(255, 255, 255, 0.06) 0 1px,
+    transparent 1px 4px
+  );
+}
+
+.vinyl-shine {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: conic-gradient(
+    from 210deg,
+    transparent 0 38%,
+    rgba(255, 255, 255, 0.16) 46%,
+    transparent 54% 100%
+  );
+}
+
+.vinyl-label {
+  position: absolute;
+  inset: 34%;
+  z-index: 2;
+  display: block;
+  border: 0;
+  border-radius: 50%;
+  cursor: pointer;
+  background:
+    radial-gradient(circle at 35% 30%, #f3d9a4, #c08a3a 58%, #8a5420 100%);
+  box-shadow: inset 0 0 0 2px #d7b36a, 0 0 0 2px #1a120c;
+}
+
+.record-control:focus-visible {
+  border-radius: 50%;
+  outline: 2px solid #fff3d6;
+  outline-offset: 4px;
+}
+
+.vinyl-spindle {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 8%;
+  height: 8%;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  pointer-events: none;
+  background: #111;
+  box-shadow: inset 0 0 2px #000, 0 0 0 1px #c9a15b;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .player-scene,
+  .pause-vignette {
+    transition: none;
+  }
+
+  .vinyl {
+    will-change: auto;
+  }
 }
