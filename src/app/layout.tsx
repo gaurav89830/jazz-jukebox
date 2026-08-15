@@ -1,5 +1,4 @@
 import type { Metadata, Viewport } from "next";
-import { background } from "@/config/player";
 import "./globals.css";
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
@@ -32,21 +31,9 @@ export const viewport: Viewport = {
   initialScale: 1,
 };
 
-const hero = background;
-
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="en" className="h-full antialiased">
-      <head>
-        <link
-          rel="preload"
-          as="image"
-          type="image/avif"
-          imageSrcSet={hero.srcSet}
-          imageSizes="100vw"
-          fetchPriority="high"
-        />
-      </head>
       <body className="min-h-full">{children}</body>
     </html>
   );

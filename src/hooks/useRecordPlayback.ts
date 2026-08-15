@@ -1,7 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { track } from "@/config/player";
+import {
+  getTrackUrl,
+  tracks,
+  type Track,
+} from "@/config/player";
 
 const MIN_RATE = 0.08;
 
@@ -52,9 +56,20 @@ export function useRecordPlayback() {
   const crackleRef = useRef<GainNode | null>(null);
   const rateRef = useRef(0);
   const runningRef = useRef(false);
+  const selectedTrackRef = useRef<Track | null>(null);
   const rampTokenRef = useRef(0);
   const [rate, setRate] = useState(0);
   const [playing, setPlaying] = useState(false);
+  const [currentTrack, setCurrentTrack] = useState<Track | null>(null);
+
+  const chooseRandomTrack = useCallback(() => {
+    if (selectedTrackRef.current) return selectedTrackRef.current;
+
+    const selected = tracks[Math.floor(Math.random() * tracks.length)];
+    selectedTrackRef.current = selected;
+    setCurrentTrack(selected);
+    return selected;
+  }, []);
 
   const setSpeed = useCallback((speed: number) => {
     const next = Math.max(0, Math.min(1, speed));
@@ -100,7 +115,9 @@ export function useRecordPlayback() {
     const audio = audioRef.current;
     if (!audio) return false;
 
-    if (!audio.hasAttribute("src")) audio.src = track.src;
+    if (!audio.hasAttribute("src")) {
+      audio.src = getTrackUrl(chooseRandomTrack());
+    }
     setPitchFollowsSpeed(audio);
 
     if (!contextRef.current) {
@@ -109,7 +126,7 @@ export function useRecordPlayback() {
     }
     await contextRef.current.resume();
     return true;
-  }, []);
+  }, [chooseRandomTrack]);
 
   const start = useCallback(async () => {
     const audio = audioRef.current;
@@ -150,6 +167,37 @@ export function useRecordPlayback() {
   }, [pause, start]);
 
   useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    const selected = chooseRandomTrack();
+    audio.src = getTrackUrl(selected);
+    audio.volume = 0.72;
+    audio.playbackRate = 1;
+    setPitchFollowsSpeed(audio);
+
+    let active = true;
+    void audio.play().then(
+      () => {
+        if (!active) return;
+        runningRef.current = true;
+        setPlaying(true);
+        setSpeed(1);
+      },
+      () => {
+        if (!active) return;
+        runningRef.current = false;
+        setPlaying(false);
+        setSpeed(0);
+      },
+    );
+
+    return () => {
+      active = false;
+    };
+  }, [chooseRandomTrack, setSpeed]);
+
+  useEffect(() => {
     const rampToken = rampTokenRef;
     return () => {
       ++rampToken.current;
@@ -161,6 +209,7 @@ export function useRecordPlayback() {
     audioRef,
     playing,
     rate,
+    currentTrack,
     toggleCenter,
   };
 }

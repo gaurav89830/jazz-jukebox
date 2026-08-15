@@ -1,3 +1,5 @@
+import catalog from "@/data/tracks.json";
+
 export const widths = [640, 1024, 1675] as const;
 
 export type Background = {
@@ -22,13 +24,15 @@ export const background: Background = {
   srcSet: srcset("jazz-with-sax"),
 };
 
-/**
- * Keep audio off the critical path. Set NEXT_PUBLIC_AUDIO_URL to a CDN
- * object (S3 + CloudFront). Until then, Play uses a tiny local placeholder.
- */
-export const track = {
-  src: process.env.NEXT_PUBLIC_AUDIO_URL ?? "/audio/local-jazz-noir.mp3",
-  title: "Ory's Creole Trombone",
-  artist: "Kid Ory's Sunshine Orchestra",
-  year: "1922",
-};
+export type Track = (typeof catalog.tracks)[number];
+
+export const tracks = catalog.tracks;
+
+export const audioBaseUrl = (
+  process.env.NEXT_PUBLIC_AUDIO_BASE_URL ??
+  "https://kgplklezapcbilbhruuy.supabase.co/storage/v1/object/public/noir-jazz"
+).replace(/\/$/, "");
+
+export function getTrackUrl(track: Track) {
+  return `${audioBaseUrl}/${encodeURIComponent(track.file)}`;
+}

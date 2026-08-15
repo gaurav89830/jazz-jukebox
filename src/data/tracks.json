@@ -1,0 +1,290 @@
+{
+  "version": 1,
+  "collection": {
+    "id": "noir-jazz",
+    "title": "Noir Jazz",
+    "trackCount": 28
+  },
+  "tracks": [
+    {
+      "id": "01-last-call-at-midnight",
+      "number": 1,
+      "title": "Last Call at Midnight",
+      "artist": null,
+      "displayTitle": "Last Call at Midnight",
+      "file": "01-last-call-at-midnight.m4a",
+      "durationSeconds": 174.25,
+      "mimeType": "audio/mp4"
+    },
+    {
+      "id": "02-smoke-on-the-glass",
+      "number": 2,
+      "title": "Smoke on the Glass",
+      "artist": null,
+      "displayTitle": "Smoke on the Glass",
+      "file": "02-smoke-on-the-glass.m4a",
+      "durationSeconds": 177.75,
+      "mimeType": "audio/mp4"
+    },
+    {
+      "id": "03-the-empty-booth",
+      "number": 3,
+      "title": "The Empty Booth",
+      "artist": null,
+      "displayTitle": "The Empty Booth",
+      "file": "03-the-empty-booth.m4a",
+      "durationSeconds": 158.62,
+      "mimeType": "audio/mp4"
+    },
+    {
+      "id": "04-rain-on-delancey",
+      "number": 4,
+      "title": "Rain on Delancey",
+      "artist": null,
+      "displayTitle": "Rain on Delancey",
+      "file": "04-rain-on-delancey.m4a",
+      "durationSeconds": 198.76,
+      "mimeType": "audio/mp4"
+    },
+    {
+      "id": "05-ashes-in-the-ashtray",
+      "number": 5,
+      "title": "Ashes in the Ashtray",
+      "artist": null,
+      "displayTitle": "Ashes in the Ashtray",
+      "file": "05-ashes-in-the-ashtray.m4a",
+      "durationSeconds": 184.37,
+      "mimeType": "audio/mp4"
+    },
+    {
+      "id": "06-a-blue-note-alibi",
+      "number": 6,
+      "title": "A Blue Note Alibi",
+      "artist": null,
+      "displayTitle": "A Blue Note Alibi",
+      "file": "06-a-blue-note-alibi.m4a",
+      "durationSeconds": 193.75,
+      "mimeType": "audio/mp4"
+    },
+    {
+      "id": "07-velvet-after-dark",
+      "number": 7,
+      "title": "Velvet After Dark",
+      "artist": null,
+      "displayTitle": "Velvet After Dark",
+      "file": "07-velvet-after-dark.m4a",
+      "durationSeconds": 180.62,
+      "mimeType": "audio/mp4"
+    },
+    {
+      "id": "08-the-bartender-knows",
+      "number": 8,
+      "title": "The Bartender Knows",
+      "artist": null,
+      "displayTitle": "The Bartender Knows",
+      "file": "08-the-bartender-knows.m4a",
+      "durationSeconds": 163.5,
+      "mimeType": "audio/mp4"
+    },
+    {
+      "id": "09-neon-in-the-fog",
+      "number": 9,
+      "title": "Neon in the Fog",
+      "artist": null,
+      "displayTitle": "Neon in the Fog",
+      "file": "09-neon-in-the-fog.m4a",
+      "durationSeconds": 184.88,
+      "mimeType": "audio/mp4"
+    },
+    {
+      "id": "10-one-more-for-the-road",
+      "number": 10,
+      "title": "One More for the Road",
+      "artist": null,
+      "displayTitle": "One More for the Road",
+      "file": "10-one-more-for-the-road.m4a",
+      "durationSeconds": 168.75,
+      "mimeType": "audio/mp4"
+    },
+    {
+      "id": "11-shadows-on-the-keys",
+      "number": 11,
+      "title": "Shadows on the Keys",
+      "artist": null,
+      "displayTitle": "Shadows on the Keys",
+      "file": "11-shadows-on-the-keys.m4a",
+      "durationSeconds": 190.75,
+      "mimeType": "audio/mp4"
+    },
+    {
+      "id": "12-her-coat-on-the-chair",
+      "number": 12,
+      "title": "Her Coat on the Chair",
+      "artist": null,
+      "displayTitle": "Her Coat on the Chair",
+      "file": "12-her-coat-on-the-chair.m4a",
+      "durationSeconds": 184.5,
+      "mimeType": "audio/mp4"
+    },
+    {
+      "id": "13-slow-train-uptown",
+      "number": 13,
+      "title": "Slow Train Uptown",
+      "artist": null,
+      "displayTitle": "Slow Train Uptown",
+      "file": "13-slow-train-uptown.m4a",
+      "durationSeconds": 196.12,
+      "mimeType": "audio/mp4"
+    },
+    {
+      "id": "14-bourbon-and-bad-news",
+      "number": 14,
+      "title": "Bourbon and Bad News",
+      "artist": null,
+      "displayTitle": "Bourbon and Bad News",
+      "file": "14-bourbon-and-bad-news.m4a",
+      "durationSeconds": 182.63,
+      "mimeType": "audio/mp4"
+    },
+    {
+      "id": "15-the-2-am-confession",
+      "number": 15,
+      "title": "The 2 AM Confession",
+      "artist": null,
+      "displayTitle": "The 2 AM Confession",
+      "file": "15-the-2-am-confession.m4a",
+      "durationSeconds": 179.25,
+      "mimeType": "audio/mp4"
+    },
+    {
+      "id": "16-footsteps-in-the-hall",
+      "number": 16,
+      "title": "Footsteps in the Hall",
+      "artist": null,
+      "displayTitle": "Footsteps in the Hall",
+      "file": "16-footsteps-in-the-hall.m4a",
+      "durationSeconds": 182.88,
+      "mimeType": "audio/mp4"
+    },
+    {
+      "id": "17-no-questions-asked",
+      "number": 17,
+      "title": "No Questions Asked",
+      "artist": null,
+      "displayTitle": "No Questions Asked",
+      "file": "17-no-questions-asked.m4a",
+      "durationSeconds": 179.37,
+      "mimeType": "audio/mp4"
+    },
+    {
+      "id": "18-moonlight-on-brass",
+      "number": 18,
+      "title": "Moonlight on Brass",
+      "artist": null,
+      "displayTitle": "Moonlight on Brass",
+      "file": "18-moonlight-on-brass.m4a",
+      "durationSeconds": 179.63,
+      "mimeType": "audio/mp4"
+    },
+    {
+      "id": "19-a-match-in-the-dark",
+      "number": 19,
+      "title": "A Match in the Dark",
+      "artist": null,
+      "displayTitle": "A Match in the Dark",
+      "file": "19-a-match-in-the-dark.m4a",
+      "durationSeconds": 179.5,
+      "mimeType": "audio/mp4"
+    },
+    {
+      "id": "20-room-27",
+      "number": 20,
+      "title": "Room 27",
+      "artist": null,
+      "displayTitle": "Room 27",
+      "file": "20-room-27.m4a",
+      "durationSeconds": 183.12,
+      "mimeType": "audio/mp4"
+    },
+    {
+      "id": "21-black-coffee-goodbye",
+      "number": 21,
+      "title": "Black Coffee Goodbye",
+      "artist": null,
+      "displayTitle": "Black Coffee Goodbye",
+      "file": "21-black-coffee-goodbye.m4a",
+      "durationSeconds": 189.12,
+      "mimeType": "audio/mp4"
+    },
+    {
+      "id": "22-the-detectives-waltz",
+      "number": 22,
+      "title": "The Detective's Waltz",
+      "artist": null,
+      "displayTitle": "The Detective's Waltz",
+      "file": "22-the-detectives-waltz.m4a",
+      "durationSeconds": 188.5,
+      "mimeType": "audio/mp4"
+    },
+    {
+      "id": "23-city-without-sleep",
+      "number": 23,
+      "title": "City Without Sleep",
+      "artist": null,
+      "displayTitle": "City Without Sleep",
+      "file": "23-city-without-sleep.m4a",
+      "durationSeconds": 193.26,
+      "mimeType": "audio/mp4"
+    },
+    {
+      "id": "24-saxophone-in-the-rain",
+      "number": 24,
+      "title": "Saxophone in the Rain",
+      "artist": null,
+      "displayTitle": "Saxophone in the Rain",
+      "file": "24-saxophone-in-the-rain.m4a",
+      "durationSeconds": 194.62,
+      "mimeType": "audio/mp4"
+    },
+    {
+      "id": "25-the-last-streetlamp",
+      "number": 25,
+      "title": "The Last Streetlamp",
+      "artist": null,
+      "displayTitle": "The Last Streetlamp",
+      "file": "25-the-last-streetlamp.m4a",
+      "durationSeconds": 179.0,
+      "mimeType": "audio/mp4"
+    },
+    {
+      "id": "26-dawn-through-blinds",
+      "number": 26,
+      "title": "Dawn Through Blinds",
+      "artist": null,
+      "displayTitle": "Dawn Through Blinds",
+      "file": "26-dawn-through-blinds.m4a",
+      "durationSeconds": 163.62,
+      "mimeType": "audio/mp4"
+    },
+    {
+      "id": "27-closing-time-again",
+      "number": 27,
+      "title": "Closing Time Again",
+      "artist": null,
+      "displayTitle": "Closing Time Again",
+      "file": "27-closing-time-again.m4a",
+      "durationSeconds": 179.37,
+      "mimeType": "audio/mp4"
+    },
+    {
+      "id": "28-just-the-two-of-us-by-bill-withers",
+      "number": 28,
+      "title": "Just the Two of Us",
+      "artist": "Bill Withers",
+      "displayTitle": "Just the Two of Us by Bill Withers",
+      "file": "28-just-the-two-of-us-by-bill-withers.m4a",
+      "durationSeconds": 186.182,
+      "mimeType": "audio/mp4"
+    }
+  ]
+}
