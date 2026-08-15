@@ -69,19 +69,36 @@ body {
   outline-offset: 2px;
 }
 
-.vinyl {
+.vinyl-shell {
   position: relative;
   width: 100%;
   height: 100%;
+  overflow: hidden;
   border-radius: 50%;
   contain: strict;
-  will-change: transform;
-  background:
-    radial-gradient(circle at 50% 50%, #1a1a1a 0 18%, #0a0a0a 19% 100%);
+  background: #080808;
   box-shadow:
     0 8px 18px rgba(0, 0, 0, 0.45),
-    inset 0 0 0 3px #111,
+    inset 0 0 0 2px #262626,
     inset 0 0 10px rgba(255, 255, 255, 0.06);
+}
+
+.vinyl-disc {
+  position: absolute;
+  inset: 2px;
+  border-radius: 50%;
+  will-change: transform;
+  background:
+    conic-gradient(
+      from 18deg,
+      rgba(255, 255, 255, 0.025) 0deg 2deg,
+      transparent 2deg 47deg,
+      rgba(255, 255, 255, 0.018) 47deg 49deg,
+      transparent 49deg 128deg,
+      rgba(255, 255, 255, 0.022) 128deg 130deg,
+      transparent 130deg 360deg
+    ),
+    radial-gradient(circle at center, #171717 0 18%, #090909 19% 100%);
 }
 
 .record-control {
@@ -94,38 +111,80 @@ body {
 
 .vinyl-grooves {
   position: absolute;
-  inset: 8%;
+  inset: 5%;
   border-radius: 50%;
   background: repeating-radial-gradient(
     circle at center,
-    rgba(255, 255, 255, 0.06) 0 1px,
-    transparent 1px 4px
+    rgba(255, 255, 255, 0.055) 0 1px,
+    transparent 1px 3px
   );
 }
 
 .vinyl-shine {
   position: absolute;
+  z-index: 3;
   inset: 0;
   border-radius: 50%;
-  background: conic-gradient(
-    from 210deg,
-    transparent 0 38%,
-    rgba(255, 255, 255, 0.16) 46%,
-    transparent 54% 100%
-  );
+  pointer-events: none;
+  background:
+    conic-gradient(
+      from 198deg,
+      transparent 0deg 28deg,
+      rgba(255, 255, 255, 0.03) 43deg,
+      rgba(255, 255, 255, 0.2) 61deg,
+      rgba(255, 255, 255, 0.04) 78deg,
+      transparent 94deg 250deg,
+      rgba(255, 255, 255, 0.11) 270deg,
+      transparent 292deg 360deg
+    ),
+    radial-gradient(
+      ellipse at 30% 18%,
+      rgba(255, 255, 255, 0.2),
+      transparent 34%
+    );
+  mix-blend-mode: screen;
 }
 
 .vinyl-label {
   position: absolute;
   inset: 34%;
   z-index: 2;
-  display: block;
+  overflow: hidden;
   border: 0;
   border-radius: 50%;
-  cursor: pointer;
   background:
-    radial-gradient(circle at 35% 30%, #f3d9a4, #c08a3a 58%, #8a5420 100%);
-  box-shadow: inset 0 0 0 2px #d7b36a, 0 0 0 2px #1a120c;
+    radial-gradient(circle at center, transparent 0 13%, #d2b56f 14% 100%);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 232, 178, 0.35),
+    0 0 0 2px #111;
+}
+
+.vinyl-label-art {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.vinyl-label-art path {
+  fill: none;
+}
+
+.vinyl-label-art .vinyl-label-band {
+  fill: #174f63;
+}
+
+.vinyl-label-art .vinyl-label-core {
+  fill: #d2b56f;
+}
+
+.vinyl-label-art text {
+  fill: #f6dfaa;
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: 0;
 }
 
 .record-control:focus-visible {
@@ -136,6 +195,7 @@ body {
 
 .vinyl-spindle {
   position: absolute;
+  z-index: 4;
   left: 50%;
   top: 50%;
   width: 8%;
@@ -153,7 +213,7 @@ body {
     transition: none;
   }
 
-  .vinyl {
+  .vinyl-disc {
     will-change: auto;
   }
 }
