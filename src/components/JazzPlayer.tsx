@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import { background } from "@/config/player";
 import { BackgroundPicture } from "@/components/BackgroundPicture";
 import { VinylRecord } from "@/components/VinylRecord";
@@ -24,11 +24,77 @@ export function JazzPlayer() {
     toggleCenter,
     nextTrack,
     previousTrack,
+    beginSeekScrub,
+    scrubTo,
+    endSeekScrub,
   } = useRecordPlayback();
+  const seekBarRef = useRef<HTMLDivElement>(null);
+  const lastScrubRef = useRef({ t: 0, seconds: 0 });
+  const [isSeeking, setIsSeeking] = useState(false);
+  const [seekPreviewSeconds, setSeekPreviewSeconds] = useState(0);
+
+  const displayedSeconds = isSeeking ? seekPreviewSeconds : elapsedSeconds;
   const progress =
     durationSeconds > 0
-      ? Math.min(100, Math.max(0, (elapsedSeconds / durationSeconds) * 100))
+      ? Math.min(
+          100,
+          Math.max(0, (displayedSeconds / durationSeconds) * 100),
+        )
       : 0;
+
+  const getSeekSeconds = (clientX: number) => {
+    const bar = seekBarRef.current;
+    if (!bar || durationSeconds <= 0) return 0;
+    const { left, width } = bar.getBoundingClientRect();
+    if (width <= 0) return 0;
+    const fraction = Math.max(0, Math.min(1, (clientX - left) / width));
+    return fraction * durationSeconds;
+  };
+
+  const handleSeekPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (durationSeconds <= 0) return;
+    event.preventDefault();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    const seconds = getSeekSeconds(event.clientX);
+    setIsSeeking(true);
+    setSeekPreviewSeconds(seconds);
+    lastScrubRef.current = { t: performance.now(), seconds };
+    void beginSeekScrub();
+    scrubTo(seconds, 0);
+  };
+
+  const handleSeekPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (!isSeeking || durationSeconds <= 0) return;
+    const seconds = getSeekSeconds(event.clientX);
+    const now = performance.now();
+    const elapsed = (now - lastScrubRef.current.t) / 1000;
+    const scrubSpeed =
+      elapsed > 0
+        ? (seconds - lastScrubRef.current.seconds) / elapsed
+        : 0;
+    lastScrubRef.current = { t: now, seconds };
+    setSeekPreviewSeconds(seconds);
+    scrubTo(seconds, scrubSpeed);
+  };
+
+  const finishSeek = (clientX: number) => {
+    if (durationSeconds <= 0) return;
+    const seconds = getSeekSeconds(clientX);
+    setIsSeeking(false);
+    endSeekScrub(seconds);
+  };
+
+  const handleSeekPointerUp = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (!isSeeking) return;
+    finishSeek(event.clientX);
+  };
+
+  const handleSeekLostPointerCapture = (
+    event: React.PointerEvent<HTMLDivElement>,
+  ) => {
+    if (!isSeeking) return;
+    finishSeek(event.clientX);
+  };
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -79,23 +145,39 @@ export function JazzPlayer() {
         </h1>
 
         <div
-          className="mt-5 h-px w-80 max-w-full overflow-hidden bg-[#f6ead6]/25"
-          role="progressbar"
+          ref={seekBarRef}
+          className={`seek-bar-hit mt-5 w-80 max-w-full ${isSeeking ? "seek-bar-hit--seeking" : ""}`}
+          role="slider"
+          tabIndex={-1}
           aria-label="Track progress"
           aria-valuemin={0}
           aria-valuemax={durationSeconds}
-          aria-valuenow={Math.min(elapsedSeconds, durationSeconds)}
+          aria-valuenow={Math.min(displayedSeconds, durationSeconds)}
+          onPointerDown={handleSeekPointerDown}
+          onPointerMove={handleSeekPointerMove}
+          onPointerUp={handleSeekPointerUp}
+          onLostPointerCapture={handleSeekLostPointerCapture}
         >
-          <div
-            className="h-full bg-[#f6ead6]/80 transition-[width] duration-200"
-            style={{ width: `${progress}%` }}
-          />
+          <div className="seek-bar">
+            <div className="seek-bar__glow" aria-hidden="true" />
+            <div
+              className="seek-bar__track"
+              style={{ width: `${progress}%` }}
+            />
+            <div
+              className="seek-bar__thumb"
+              style={{ left: `${progress}%` }}
+              aria-hidden="true"
+            />
+          </div>
         </div>
 
         <div className="mt-3 flex w-80 max-w-full items-center justify-between text-[#f6ead6]">
           <div className="flex items-center gap-3">
             <button
               type="button"
+              tabIndex={-1}
+              onMouseDown={(event) => event.preventDefault()}
               onClick={() => void previousTrack()}
               className="track-skip-button"
               aria-label="Previous track"
@@ -105,6 +187,8 @@ export function JazzPlayer() {
             </button>
             <button
               type="button"
+              tabIndex={-1}
+              onMouseDown={(event) => event.preventDefault()}
               onClick={() => void nextTrack()}
               className="track-skip-button"
               aria-label="Next track"
@@ -113,8 +197,8 @@ export function JazzPlayer() {
               →
             </button>
           </div>
-          <span className="font-mono text-xs tracking-wide text-[#f6ead6]/75">
-            {formatTime(elapsedSeconds)} / {formatTime(durationSeconds)}
+          <span className="track-time">
+            {formatTime(displayedSeconds)} / {formatTime(durationSeconds)}
           </span>
         </div>
       </section>

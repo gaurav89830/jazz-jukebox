@@ -50,10 +50,47 @@ function createCrackle(ctx: AudioContext) {
   return gain;
 }
 
+type ScrubBus = {
+  gain: GainNode;
+  filter: BiquadFilterNode;
+};
+
+function createScrubBus(ctx: AudioContext): ScrubBus {
+  const buffer = noiseBuffer(ctx, 2.5);
+  const data = buffer.getChannelData(0);
+  for (let i = 0; i < data.length; i += 1) {
+    data[i] *= 0.014;
+    if (Math.random() < 0.0025) {
+      data[i] += (Math.random() * 2 - 1) * 0.22;
+    }
+  }
+
+  const source = ctx.createBufferSource();
+  const filter = ctx.createBiquadFilter();
+  const gain = ctx.createGain();
+  source.buffer = buffer;
+  source.loop = true;
+  filter.type = "bandpass";
+  filter.frequency.value = 2400;
+  filter.Q.value = 0.85;
+  gain.gain.value = 0;
+  source.connect(filter).connect(gain).connect(ctx.destination);
+  source.start();
+  return { gain, filter };
+}
+
+function resolveDuration(audio: HTMLAudioElement, catalogDuration: number) {
+  return Number.isFinite(audio.duration) && audio.duration > 0
+    ? audio.duration
+    : catalogDuration;
+}
+
 export function useRecordPlayback() {
   const audioRef = useRef<HTMLAudioElement>(null);
   const contextRef = useRef<AudioContext | null>(null);
   const crackleRef = useRef<GainNode | null>(null);
+  const scrubRef = useRef<ScrubBus | null>(null);
+  const scrubbingRef = useRef(false);
   const rateRef = useRef(0);
   const runningRef = useRef(false);
   const selectedTrackRef = useRef<Track | null>(null);
@@ -129,6 +166,7 @@ export function useRecordPlayback() {
     if (!contextRef.current) {
       contextRef.current = new AudioContext();
       crackleRef.current = createCrackle(contextRef.current);
+      scrubRef.current = createScrubBus(contextRef.current);
     }
     await contextRef.current.resume();
     return true;
@@ -213,6 +251,107 @@ export function useRecordPlayback() {
   const nextTrack = useCallback(() => moveTrack(1), [moveTrack]);
   const previousTrack = useCallback(() => moveTrack(-1), [moveTrack]);
 
+  const setScrubLevel = useCallback((level: number) => {
+    const ctx = contextRef.current;
+    const scrub = scrubRef.current;
+    if (!ctx || !scrub) return;
+
+    const now = ctx.currentTime;
+    const clamped = Math.max(0, Math.min(1, level));
+    scrub.gain.gain.setTargetAtTime(clamped * 0.048, now, 0.03);
+    scrub.filter.frequency.setTargetAtTime(1600 + clamped * 2600, now, 0.05);
+  }, []);
+
+  const beginSeekScrub = useCallback(async () => {
+    if (!(await prepare())) return;
+
+    scrubbingRef.current = true;
+    const audio = audioRef.current;
+    if (audio && runningRef.current) {
+      audio.playbackRate = Math.max(MIN_RATE, rateRef.current * 0.78);
+    }
+    setScrubLevel(0.28);
+  }, [prepare, setScrubLevel]);
+
+  const scrubTo = useCallback(
+    (seconds: number, scrubSpeed = 0) => {
+      const audio = audioRef.current;
+      if (!audio || !scrubbingRef.current) return;
+
+      const catalogDuration = selectedTrackRef.current?.durationSeconds ?? 0;
+      const duration = resolveDuration(audio, catalogDuration);
+      if (!duration) return;
+
+      const clamped = Math.max(0, Math.min(duration, seconds));
+      audio.currentTime = clamped;
+      setElapsedSeconds(clamped);
+
+      const speed = Math.abs(scrubSpeed);
+      const intensity = Math.min(1, 0.22 + speed * 1.8);
+      setScrubLevel(intensity);
+    },
+    [setScrubLevel],
+  );
+
+  const endSeekScrub = useCallback(
+    (seconds: number) => {
+      scrubbingRef.current = false;
+
+      const audio = audioRef.current;
+      const ctx = contextRef.current;
+      const catalogDuration = selectedTrackRef.current?.durationSeconds ?? 0;
+
+      if (scrubRef.current && ctx) {
+        scrubRef.current.gain.gain.setTargetAtTime(0, ctx.currentTime, 0.1);
+      }
+
+      if (!audio) return;
+
+      const duration = resolveDuration(audio, catalogDuration);
+      if (!duration) return;
+
+      const clamped = Math.max(0, Math.min(duration, seconds));
+      audio.currentTime = clamped;
+      setElapsedSeconds(clamped);
+
+      if (runningRef.current) {
+        audio.playbackRate = Math.max(MIN_RATE, rateRef.current);
+      }
+
+      if (ctx && crackleRef.current) {
+        const baseline = rateRef.current * 0.035;
+        const now = ctx.currentTime;
+        crackleRef.current.gain.cancelScheduledValues(now);
+        crackleRef.current.gain.setValueAtTime(baseline + 0.012, now);
+        crackleRef.current.gain.setTargetAtTime(baseline, now + 0.05, 0.14);
+      }
+    },
+    [],
+  );
+
+  const seekTo = useCallback(
+    async (seconds: number) => {
+      const audio = audioRef.current;
+      if (!audio) return;
+
+      const catalogDuration = selectedTrackRef.current?.durationSeconds ?? 0;
+      const duration = resolveDuration(audio, catalogDuration);
+      if (!duration) return;
+
+      const clamped = Math.max(0, Math.min(duration, seconds));
+      if (!(await prepare())) return;
+
+      setScrubLevel(0.42);
+      audio.currentTime = clamped;
+      setElapsedSeconds(clamped);
+
+      window.setTimeout(() => {
+        setScrubLevel(0);
+      }, 70);
+    },
+    [prepare, setScrubLevel],
+  );
+
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
@@ -281,5 +420,9 @@ export function useRecordPlayback() {
     toggleCenter,
     nextTrack,
     previousTrack,
+    beginSeekScrub,
+    scrubTo,
+    endSeekScrub,
+    seekTo,
   };
 }
