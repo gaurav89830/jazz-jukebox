@@ -125,6 +125,21 @@ export function useRecordPlayback({
     return selectTrack(selected);
   }, [selectTrack]);
 
+  const muteAuxAudio = useCallback(() => {
+    const ctx = contextRef.current;
+    if (!ctx || ctx.state === "closed") return;
+
+    const now = ctx.currentTime;
+    if (crackleRef.current) {
+      crackleRef.current.gain.cancelScheduledValues(now);
+      crackleRef.current.gain.setValueAtTime(0, now);
+    }
+    if (scrubRef.current) {
+      scrubRef.current.gain.gain.cancelScheduledValues(now);
+      scrubRef.current.gain.gain.setValueAtTime(0, now);
+    }
+  }, []);
+
   const setSpeed = useCallback((speed: number) => {
     const next = Math.max(0, Math.min(1, speed));
     rateRef.current = next;
@@ -134,19 +149,20 @@ export function useRecordPlayback({
     if (audio) audio.playbackRate = Math.max(MIN_RATE, next);
 
     const ctx = contextRef.current;
-    if (ctx && crackleRef.current) {
-      crackleRef.current.gain.setTargetAtTime(
-        next * CRACKLE_BASE * staticLevelRef.current,
-        ctx.currentTime,
-        0.04,
-      );
+    if (ctx && ctx.state !== "closed" && crackleRef.current) {
+      const crackleGain = runningRef.current
+        ? next * CRACKLE_BASE * staticLevelRef.current
+        : 0;
+      crackleRef.current.gain.setTargetAtTime(crackleGain, ctx.currentTime, 0.04);
     }
   }, []);
 
   useEffect(() => {
     staticLevelRef.current = staticLevel;
+    if (!runningRef.current) return;
+
     const ctx = contextRef.current;
-    if (ctx && crackleRef.current) {
+    if (ctx && ctx.state !== "closed" && crackleRef.current) {
       crackleRef.current.gain.setTargetAtTime(
         rateRef.current * CRACKLE_BASE * staticLevel,
         ctx.currentTime,
@@ -186,6 +202,33 @@ export function useRecordPlayback({
     [setSpeed],
   );
 
+  const ensureAudioContext = useCallback(() => {
+    const existing = contextRef.current;
+    if (existing && existing.state !== "closed") return existing;
+
+    const ctx = new AudioContext();
+    contextRef.current = ctx;
+    crackleRef.current = createCrackle(ctx);
+    scrubRef.current = createScrubBus(ctx);
+    return ctx;
+  }, []);
+
+  const engageFromGesture = useCallback(() => {
+    const audio = audioRef.current;
+    if (!audio) return false;
+
+    if (!audio.hasAttribute("src")) {
+      audio.src = getTrackUrl(chooseRandomTrack());
+    }
+    setPitchFollowsSpeed(audio);
+
+    const ctx = ensureAudioContext();
+    if (ctx.state === "suspended") {
+      void ctx.resume();
+    }
+    return true;
+  }, [chooseRandomTrack, ensureAudioContext]);
+
   const prepare = useCallback(async () => {
     const audio = audioRef.current;
     if (!audio) return false;
@@ -195,78 +238,104 @@ export function useRecordPlayback({
     }
     setPitchFollowsSpeed(audio);
 
-    if (!contextRef.current) {
-      contextRef.current = new AudioContext();
-      crackleRef.current = createCrackle(contextRef.current);
-      scrubRef.current = createScrubBus(contextRef.current);
+    const ctx = ensureAudioContext();
+    if (ctx.state === "suspended") {
+      await ctx.resume();
     }
-    await contextRef.current.resume();
     return true;
-  }, [chooseRandomTrack]);
+  }, [chooseRandomTrack, ensureAudioContext]);
+
+  const playFromGesture = useCallback(() => {
+    const audio = audioRef.current;
+    if (!audio || !engageFromGesture()) {
+      return Promise.resolve(false);
+    }
+
+    ++rampTokenRef.current;
+    runningRef.current = true;
+    setPlaying(true);
+    setSpeed(Math.max(MIN_RATE, rateRef.current));
+
+    return audio
+      .play()
+      .then(() => rampTo(1, 1100))
+      .then(() => true)
+      .catch(() => {
+        runningRef.current = false;
+        setPlaying(false);
+        muteAuxAudio();
+        setSpeed(0);
+        return false;
+      });
+  }, [engageFromGesture, muteAuxAudio, rampTo, setSpeed]);
 
   const start = useCallback(async () => {
     const audio = audioRef.current;
     if (!audio || !(await prepare())) return false;
 
     ++rampTokenRef.current;
+    runningRef.current = true;
+    setPlaying(true);
     setSpeed(Math.max(MIN_RATE, rateRef.current));
     try {
       await audio.play();
-      runningRef.current = true;
-      setPlaying(true);
       await rampTo(1, 1100);
       return true;
     } catch {
       runningRef.current = false;
       setPlaying(false);
+      muteAuxAudio();
       setSpeed(0);
       return false;
     }
-  }, [prepare, rampTo, setSpeed]);
+  }, [muteAuxAudio, prepare, rampTo, setSpeed]);
 
   const pause = useCallback(async () => {
     const audio = audioRef.current;
     if (!audio) return;
     runningRef.current = false;
     setPlaying(false);
+    muteAuxAudio();
     const completed = await rampTo(0, 850);
     if (completed) {
       audio.pause();
       setSpeed(0);
     }
-  }, [rampTo, setSpeed]);
+  }, [muteAuxAudio, rampTo, setSpeed]);
 
-  const toggleCenter = useCallback(async () => {
+  const toggleCenter = useCallback(() => {
     if (runningRef.current) {
-      await pause();
-    } else {
-      await start();
+      void pause();
+      return;
     }
-  }, [pause, start]);
+    void playFromGesture();
+  }, [pause, playFromGesture]);
 
   const loadAndPlayTrack = useCallback(
-    async (selected: Track) => {
+    (selected: Track) => {
       const audio = audioRef.current;
-      if (!audio || !(await prepare())) return;
+      if (!audio || !engageFromGesture()) return;
 
       ++rampTokenRef.current;
       audio.pause();
       audio.src = getTrackUrl(selected);
       audio.load();
 
+      runningRef.current = true;
+      setPlaying(true);
       setSpeed(MIN_RATE);
-      try {
-        await audio.play();
-        runningRef.current = true;
-        setPlaying(true);
-        await rampTo(1, 650);
-      } catch {
-        runningRef.current = false;
-        setPlaying(false);
-        setSpeed(0);
-      }
+
+      void audio
+        .play()
+        .then(() => rampTo(1, 650))
+        .catch(() => {
+          runningRef.current = false;
+          setPlaying(false);
+          muteAuxAudio();
+          setSpeed(0);
+        });
     },
-    [prepare, rampTo, setSpeed],
+    [engageFromGesture, muteAuxAudio, rampTo, setSpeed],
   );
 
   const goToTrackIndex = useCallback(
@@ -298,9 +367,11 @@ export function useRecordPlayback({
     : -1;
 
   const setScrubLevel = useCallback((level: number) => {
+    if (!runningRef.current) return;
+
     const ctx = contextRef.current;
     const scrub = scrubRef.current;
-    if (!ctx || !scrub) return;
+    if (!ctx || ctx.state === "closed" || !scrub) return;
 
     const now = ctx.currentTime;
     const clamped = Math.max(0, Math.min(1, level));
@@ -308,8 +379,8 @@ export function useRecordPlayback({
     scrub.filter.frequency.setTargetAtTime(1600 + clamped * 2600, now, 0.05);
   }, []);
 
-  const beginSeekScrub = useCallback(async () => {
-    if (!(await prepare())) return;
+  const beginSeekScrub = useCallback(() => {
+    engageFromGesture();
 
     scrubbingRef.current = true;
     const audio = audioRef.current;
@@ -317,7 +388,7 @@ export function useRecordPlayback({
       audio.playbackRate = Math.max(MIN_RATE, rateRef.current * 0.78);
     }
     setScrubLevel(0.28);
-  }, [prepare, setScrubLevel]);
+  }, [engageFromGesture, setScrubLevel]);
 
   const scrubTo = useCallback(
     (seconds: number, scrubSpeed = 0) => {
@@ -347,7 +418,7 @@ export function useRecordPlayback({
       const ctx = contextRef.current;
       const catalogDuration = selectedTrackRef.current?.durationSeconds ?? 0;
 
-      if (scrubRef.current && ctx) {
+      if (scrubRef.current && ctx && ctx.state !== "closed") {
         scrubRef.current.gain.gain.setTargetAtTime(0, ctx.currentTime, 0.1);
       }
 
@@ -364,7 +435,7 @@ export function useRecordPlayback({
         audio.playbackRate = Math.max(MIN_RATE, rateRef.current);
       }
 
-      if (ctx && crackleRef.current) {
+      if (ctx && ctx.state !== "closed" && runningRef.current && crackleRef.current) {
         const baseline = rateRef.current * CRACKLE_BASE * staticLevelRef.current;
         const now = ctx.currentTime;
         crackleRef.current.gain.cancelScheduledValues(now);
@@ -427,8 +498,10 @@ export function useRecordPlayback({
 
     const unlockPlayback = () => {
       if (runningRef.current) return;
-      void start();
+      void playFromGesture();
     };
+
+    const unlockOptions = { capture: true, once: true } as const;
 
     const boot = async () => {
       chooseRandomTrack();
@@ -442,7 +515,8 @@ export function useRecordPlayback({
       const started = await start();
       if (!active) return;
       if (!started) {
-        window.addEventListener("pointerdown", unlockPlayback, { once: true });
+        window.addEventListener("pointerdown", unlockPlayback, unlockOptions);
+        window.addEventListener("touchstart", unlockPlayback, unlockOptions);
       }
     };
 
@@ -450,15 +524,23 @@ export function useRecordPlayback({
 
     return () => {
       active = false;
-      window.removeEventListener("pointerdown", unlockPlayback);
+      bootedRef.current = false;
+      window.removeEventListener("pointerdown", unlockPlayback, unlockOptions);
+      window.removeEventListener("touchstart", unlockPlayback, unlockOptions);
     };
-  }, [chooseRandomTrack, start]);
+  }, [chooseRandomTrack, playFromGesture, start]);
 
   useEffect(() => {
     const rampToken = rampTokenRef;
     return () => {
       ++rampToken.current;
-      void contextRef.current?.close();
+      const ctx = contextRef.current;
+      contextRef.current = null;
+      crackleRef.current = null;
+      scrubRef.current = null;
+      if (ctx && ctx.state !== "closed") {
+        void ctx.close();
+      }
     };
   }, []);
 

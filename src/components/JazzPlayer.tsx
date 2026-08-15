@@ -6,7 +6,7 @@ import { BackgroundPicture } from "@/components/BackgroundPicture";
 import { SettingsPanel } from "@/components/SettingsPanel";
 import { TrackDial } from "@/components/TrackDial";
 import { VinylRecord } from "@/components/VinylRecord";
-import { usePlayerSettings } from "@/hooks/usePlayerSettings";
+import { usePlayerSettings, type PlayerSettings } from "@/hooks/usePlayerSettings";
 import { useRecordPlayback } from "@/hooks/useRecordPlayback";
 
 function formatTime(seconds: number) {
@@ -16,8 +16,15 @@ function formatTime(seconds: number) {
   return `${minutes}:${remainder.toString().padStart(2, "0")}`;
 }
 
-export function JazzPlayer() {
-  const { settings, updateSetting } = usePlayerSettings();
+type JazzPlayerContentProps = {
+  settings: PlayerSettings;
+  updateSetting: <K extends keyof PlayerSettings>(
+    key: K,
+    value: PlayerSettings[K],
+  ) => void;
+};
+
+function JazzPlayerContent({ settings, updateSetting }: JazzPlayerContentProps) {
   const {
     audioRef,
     playing,
@@ -116,7 +123,7 @@ export function JazzPlayer() {
     setIsSeeking(true);
     setSeekPreviewSeconds(seconds);
     lastScrubRef.current = { t: performance.now(), seconds };
-    void beginSeekScrub();
+    beginSeekScrub();
     scrubTo(seconds, 0);
   };
 
@@ -235,10 +242,10 @@ export function JazzPlayer() {
         }`}
       />
 
-      <audio ref={audioRef} preload="auto" />
+      <audio ref={audioRef} preload="auto" playsInline />
 
       <section
-        className={`player-panel absolute bottom-7 left-6 z-20 sm:bottom-10 sm:left-10 ${
+        className={`player-panel ${
           vinylOnLeft ? "" : "player-panel--no-vinyl"
         }`}
       >
@@ -358,5 +365,17 @@ export function JazzPlayer() {
         onClose={() => setSettingsOpen(false)}
       />
     </div>
+  );
+}
+
+export function JazzPlayer() {
+  const { settings, updateSetting, hydrated } = usePlayerSettings();
+
+  if (!hydrated) {
+    return <div className="player-scene min-h-dvh bg-[#140c07]" />;
+  }
+
+  return (
+    <JazzPlayerContent settings={settings} updateSetting={updateSetting} />
   );
 }

@@ -79,9 +79,12 @@ export function VinylRecord({
     <button
       type="button"
       tabIndex={-1}
-      onMouseDown={(event) => event.preventDefault()}
       className={`record-control relative touch-none select-none ${className ?? "size-16 sm:size-20"}`}
-      onClick={onToggle}
+      onPointerDown={(event) => {
+        if (!event.isPrimary) return;
+        event.preventDefault();
+        onToggle();
+      }}
       aria-label={playing ? "Pause Noir Jazz" : "Play Noir Jazz"}
       aria-pressed={playing}
     >

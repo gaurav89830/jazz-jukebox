@@ -43,7 +43,7 @@ function readVinylDisplay(parsed: StoredSettings): VinylDisplay {
   return defaultSettings.vinylDisplay;
 }
 
-function readSettings(): PlayerSettings {
+export function readSettings(): PlayerSettings {
   if (typeof window === "undefined") return defaultSettings;
 
   try {
@@ -61,6 +61,11 @@ function readSettings(): PlayerSettings {
   }
 }
 
+function writeSettings(settings: PlayerSettings) {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
+}
+
 export function usePlayerSettings() {
   const [settings, setSettings] = useState<PlayerSettings>(defaultSettings);
   const [hydrated, setHydrated] = useState(false);
@@ -68,19 +73,26 @@ export function usePlayerSettings() {
   useEffect(() => {
     setSettings(readSettings());
     setHydrated(true);
-  }, []);
 
-  useEffect(() => {
-    if (!hydrated) return;
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
-  }, [hydrated, settings]);
+    const onStorage = (event: StorageEvent) => {
+      if (event.key !== STORAGE_KEY) return;
+      setSettings(readSettings());
+    };
+
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
 
   const updateSetting = useCallback(
     <K extends keyof PlayerSettings>(key: K, value: PlayerSettings[K]) => {
-      setSettings((current) => ({ ...current, [key]: value }));
+      setSettings((current) => {
+        const next = { ...current, [key]: value };
+        writeSettings(next);
+        return next;
+      });
     },
     [],
   );
 
-  return { settings, updateSetting };
+  return { settings, updateSetting, hydrated };
 }

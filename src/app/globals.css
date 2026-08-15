@@ -84,12 +84,17 @@ body {
 }
 
 .player-panel {
+  position: absolute;
+  bottom: max(1.75rem, env(safe-area-inset-bottom));
+  left: 1.5rem;
+  z-index: 20;
   display: grid;
   grid-template-columns: auto minmax(0, 14.75rem);
   grid-template-rows: auto auto auto;
   column-gap: 0.75rem;
   row-gap: 0.625rem;
   align-items: end;
+  max-width: calc(100vw - 3rem);
 }
 
 .player-panel__vinyl {
@@ -158,8 +163,8 @@ body {
 .player-vinyl-float {
   position: absolute;
   right: 1.25rem;
-  bottom: 1.75rem;
-  z-index: 20;
+  bottom: max(1.75rem, env(safe-area-inset-bottom));
+  z-index: 18;
   width: 3.55rem;
   height: 3.55rem;
   pointer-events: auto;
@@ -170,7 +175,40 @@ body {
   height: 100%;
 }
 
+@media (max-width: 639px) {
+  .player-panel {
+    left: 1rem;
+    bottom: max(1.25rem, env(safe-area-inset-bottom));
+    grid-template-columns: minmax(0, 1fr);
+    max-width: min(58vw, 16rem);
+    column-gap: 0;
+    row-gap: 0.5rem;
+  }
+
+  .player-panel__vinyl,
+  .player-vinyl-float {
+    display: none;
+  }
+
+  .player-panel .player-panel__meta,
+  .player-panel .player-panel__seek,
+  .player-panel .player-panel__controls {
+    grid-column: 1;
+  }
+
+  .track-dial {
+    width: min(46vw, 15rem);
+    padding-right: 0.75rem;
+  }
+}
+
 @media (min-width: 640px) {
+  .player-panel {
+    bottom: 2.5rem;
+    left: 2.5rem;
+    max-width: calc(100vw - 5rem);
+  }
+
   .player-panel {
     grid-template-columns: auto minmax(0, 16.25rem);
   }
@@ -718,6 +756,7 @@ body {
 .settings-panel__inner {
   position: relative;
   padding: 1.7rem 1.75rem 1.3rem;
+  font-family: ui-sans-serif, system-ui, sans-serif;
   background:
     radial-gradient(
       ellipse at 50% 0%,
@@ -729,14 +768,14 @@ body {
 
 .settings-panel__title {
   margin: 0;
-  color: #f4d78a;
-  font-family: var(--font-display);
-  font-size: 2.05rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
+  color: #e4c995;
+  font-family: inherit;
+  font-size: 1.05rem;
+  font-weight: 800;
+  letter-spacing: 0.2em;
   line-height: 1;
   text-align: center;
-  text-shadow: 0 0 22px rgba(212, 168, 83, 0.28);
+  text-transform: uppercase;
 }
 
 .settings-ornament {
@@ -781,9 +820,10 @@ body {
 .settings-section__title {
   margin: 0 0 0.85rem;
   color: #e4c995;
-  font-size: 0.62rem;
+  font-family: inherit;
+  font-size: 0.625rem;
   font-weight: 700;
-  letter-spacing: 0.3em;
+  letter-spacing: 0.22em;
   text-transform: uppercase;
   text-align: left;
 }
@@ -795,9 +835,10 @@ body {
   gap: 1rem;
   min-height: 2.2rem;
   color: #f6ead6;
-  font-size: 0.86rem;
+  font-family: inherit;
+  font-size: 0.78rem;
   font-weight: 600;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.03em;
 }
 
 .settings-row + .settings-row {
@@ -812,9 +853,10 @@ body {
 
 .settings-choice-row__label {
   color: #f6ead6;
-  font-size: 0.86rem;
+  font-family: inherit;
+  font-size: 0.78rem;
   font-weight: 600;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.03em;
   text-align: left;
 }
 
@@ -837,9 +879,10 @@ body {
   cursor: pointer;
   background: rgba(0, 0, 0, 0.28);
   color: rgba(246, 234, 214, 0.78);
-  font-size: 0.78rem;
+  font-family: inherit;
+  font-size: 0.625rem;
   font-weight: 700;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
   transition:
     border-color 180ms ease,
@@ -871,9 +914,10 @@ body {
 
 .settings-row__value {
   color: #e4c995;
-  font-size: 0.68rem;
+  font-family: inherit;
+  font-size: 0.625rem;
   font-weight: 700;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.14em;
   font-variant-numeric: tabular-nums;
 }
 
@@ -974,9 +1018,10 @@ body {
 .settings-panel__hint {
   margin: 1.25rem 0 0;
   color: rgba(228, 201, 149, 0.42);
-  font-size: 0.55rem;
+  font-family: inherit;
+  font-size: 0.625rem;
   font-weight: 700;
-  letter-spacing: 0.32em;
+  letter-spacing: 0.22em;
   text-transform: uppercase;
   text-align: center;
 }
