@@ -106,8 +106,8 @@ export function useRecordPlayback({
   const runningRef = useRef(false);
   const selectedTrackRef = useRef<Track | null>(null);
   const rampTokenRef = useRef(0);
-  const [rate, setRate] = useState(0);
-  const [playing, setPlaying] = useState(false);
+  const [rate, setRate] = useState(1);
+  const [playing, setPlaying] = useState(true);
   const [currentTrack, setCurrentTrack] = useState<Track | null>(null);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
 
@@ -206,7 +206,7 @@ export function useRecordPlayback({
 
   const start = useCallback(async () => {
     const audio = audioRef.current;
-    if (!audio || !(await prepare())) return;
+    if (!audio || !(await prepare())) return false;
 
     ++rampTokenRef.current;
     setSpeed(Math.max(MIN_RATE, rateRef.current));
@@ -215,10 +215,12 @@ export function useRecordPlayback({
       runningRef.current = true;
       setPlaying(true);
       await rampTo(1, 1100);
+      return true;
     } catch {
       runningRef.current = false;
       setPlaying(false);
       setSpeed(0);
+      return false;
     }
   }, [prepare, rampTo, setSpeed]);
 
@@ -415,36 +417,42 @@ export function useRecordPlayback({
     };
   }, [nextTrack]);
 
-  useEffect(() => {
-    const audio = audioRef.current;
-    if (!audio) return;
+  const bootedRef = useRef(false);
 
-    const selected = chooseRandomTrack();
-    audio.src = getTrackUrl(selected);
-    audio.volume = Math.max(0, Math.min(1, volume));
-    audio.playbackRate = 1;
-    setPitchFollowsSpeed(audio);
+  useEffect(() => {
+    if (bootedRef.current) return;
+    bootedRef.current = true;
 
     let active = true;
-    void audio.play().then(
-      () => {
-        if (!active) return;
-        runningRef.current = true;
-        setPlaying(true);
-        setSpeed(1);
-      },
-      () => {
-        if (!active) return;
-        runningRef.current = false;
-        setPlaying(false);
-        setSpeed(0);
-      },
-    );
+
+    const unlockPlayback = () => {
+      if (runningRef.current) return;
+      void start();
+    };
+
+    const boot = async () => {
+      chooseRandomTrack();
+      if (!active) return;
+
+      const audio = audioRef.current;
+      if (audio) {
+        audio.volume = Math.max(0, Math.min(1, volume));
+      }
+
+      const started = await start();
+      if (!active) return;
+      if (!started) {
+        window.addEventListener("pointerdown", unlockPlayback, { once: true });
+      }
+    };
+
+    void boot();
 
     return () => {
       active = false;
+      window.removeEventListener("pointerdown", unlockPlayback);
     };
-  }, [chooseRandomTrack, setSpeed]);
+  }, [chooseRandomTrack, start]);
 
   useEffect(() => {
     const rampToken = rampTokenRef;

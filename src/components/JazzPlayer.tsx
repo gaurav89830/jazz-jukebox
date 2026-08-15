@@ -235,7 +235,7 @@ export function JazzPlayer() {
         }`}
       />
 
-      <audio ref={audioRef} preload="none" />
+      <audio ref={audioRef} preload="auto" />
 
       <section
         className={`player-panel absolute bottom-7 left-6 z-20 sm:bottom-10 sm:left-10 ${

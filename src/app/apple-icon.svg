@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180" fill="none">
+  <defs>
+    <filter id="neon" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="2.8" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <linearGradient id="gold" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#fff2c8"/>
+      <stop offset="55%" stop-color="#f4d78a"/>
+      <stop offset="100%" stop-color="#d4a853"/>
+    </linearGradient>
+  </defs>
+  <rect x="14" y="14" width="152" height="152" rx="14" fill="#0d0805" stroke="#c9a15b" stroke-width="3"/>
+  <rect x="22" y="22" width="136" height="136" rx="10" fill="none" stroke="rgba(244,215,138,0.24)" stroke-width="1.5"/>
+  <g filter="url(#neon)" fill="url(#gold)">
+    <text
+      x="90"
+      y="82"
+      font-family="ui-sans-serif, system-ui, sans-serif"
+      font-size="34"
+      font-weight="800"
+      letter-spacing="0.14em"
+      text-anchor="middle"
+    >
+      JAZZ
+    </text>
+    <text
+      x="90"
+      y="122"
+      font-family="ui-sans-serif, system-ui, sans-serif"
+      font-size="34"
+      font-weight="800"
+      letter-spacing="0.14em"
+      text-anchor="middle"
+    >
+      JUKE
+    </text>
+  </g>
+</svg>

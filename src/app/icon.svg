@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
+  <defs>
+    <filter id="neon" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="0.55" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  <rect x="2" y="2" width="28" height="28" rx="3" fill="#0d0805" stroke="#c9a15b" stroke-width="0.9"/>
+  <rect x="3.4" y="3.4" width="25.2" height="25.2" rx="2.2" fill="none" stroke="rgba(244,215,138,0.22)" stroke-width="0.45"/>
+  <g filter="url(#neon)" fill="#f4d78a">
+    <text
+      x="16"
+      y="13.2"
+      font-family="ui-sans-serif, system-ui, sans-serif"
+      font-size="6.2"
+      font-weight="800"
+      letter-spacing="0.08em"
+      text-anchor="middle"
+    >
+      JAZZ
+    </text>
+    <text
+      x="16"
+      y="21.8"
+      font-family="ui-sans-serif, system-ui, sans-serif"
+      font-size="6.2"
+      font-weight="800"
+      letter-spacing="0.08em"
+      text-anchor="middle"
+    >
+      JUKE
+    </text>
+  </g>
+</svg>
