@@ -587,16 +587,27 @@ body {
 .track-dial__brand {
   display: flex;
   flex-direction: column;
-  align-items: flex-end;
+  align-items: center;
   margin: 0 0.7rem 0.85rem 0;
   color: #e4c995;
-  font-family: ui-sans-serif, system-ui, sans-serif;
-  font-size: 1.05rem;
-  font-weight: 800;
-  letter-spacing: 0.2em;
-  line-height: 1;
-  text-align: right;
+  font-family: var(--font-display), Didot, "Bodoni 72", serif;
+  font-size: 1.55rem;
+  font-weight: 700;
+  line-height: 0.76;
+  text-align: center;
   text-transform: uppercase;
+}
+
+.track-dial__brand-jazz {
+  margin-right: -0.42em;
+  margin-bottom: 0.34em;
+  font-size: 0.42em;
+  font-weight: 600;
+  letter-spacing: 0.42em;
+}
+
+.track-dial__brand-jukebox {
+  letter-spacing: 0.045em;
 }
 
 .track-dial__list {

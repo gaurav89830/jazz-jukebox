@@ -50,8 +50,8 @@ export function TrackDial({
 
       <div className="track-dial__panel">
         <p className="track-dial__brand">
-          <span>JAZZ</span>
-          <span>JUKEBOX</span>
+          <span className="track-dial__brand-jazz">JAZZ</span>
+          <span className="track-dial__brand-jukebox">JUKEBOX</span>
         </p>
         <div className="track-dial__list">
         {visibleTracks.map(({ track, index, offset }) => {
