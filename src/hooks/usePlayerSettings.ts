@@ -71,11 +71,11 @@ function writeSettings(settings: PlayerSettings) {
 
 export function usePlayerSettings() {
   const [settings, setSettings] = useState<PlayerSettings>(defaultSettings);
-  const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
-    setSettings(readSettings());
-    setHydrated(true);
+    const frame = window.requestAnimationFrame(() => {
+      setSettings(readSettings());
+    });
 
     const onStorage = (event: StorageEvent) => {
       if (event.key !== STORAGE_KEY) return;
@@ -83,7 +83,10 @@ export function usePlayerSettings() {
     };
 
     window.addEventListener("storage", onStorage);
-    return () => window.removeEventListener("storage", onStorage);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.removeEventListener("storage", onStorage);
+    };
   }, []);
 
   const updateSetting = useCallback(
@@ -97,5 +100,5 @@ export function usePlayerSettings() {
     [],
   );
 
-  return { settings, updateSetting, hydrated };
+  return { settings, updateSetting };
 }

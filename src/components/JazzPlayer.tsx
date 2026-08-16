@@ -271,7 +271,7 @@ function JazzPlayerContent({ settings, updateSetting }: JazzPlayerContentProps) 
         </div>
       ) : null}
 
-      <audio ref={audioRef} preload="auto" playsInline />
+      <audio ref={audioRef} preload="metadata" playsInline />
 
       <section
         className={`player-panel ${
@@ -419,11 +419,7 @@ function JazzPlayerContent({ settings, updateSetting }: JazzPlayerContentProps) 
 }
 
 export function JazzPlayer() {
-  const { settings, updateSetting, hydrated } = usePlayerSettings();
-
-  if (!hydrated) {
-    return <div className="player-scene min-h-dvh bg-[#140c07]" />;
-  }
+  const { settings, updateSetting } = usePlayerSettings();
 
   return (
     <JazzPlayerContent settings={settings} updateSetting={updateSetting} />

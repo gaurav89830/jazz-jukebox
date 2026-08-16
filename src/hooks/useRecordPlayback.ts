@@ -6,7 +6,6 @@ import {
   tracks,
   type Track,
 } from "@/config/player";
-import { prefetchAudio } from "@/lib/prefetch-audio";
 
 const MIN_RATE = 0.08;
 
@@ -107,7 +106,7 @@ export function useRecordPlayback({
   const staticLevelRef = useRef(staticLevel);
   const volumeRef = useRef(volume);
   const runningRef = useRef(false);
-  const selectedTrackRef = useRef<Track | null>(null);
+  const selectedTrackRef = useRef<Track | null>(tracks[0] ?? null);
   const scratchBufferRef = useRef<{
     trackId: string;
     buffer: AudioBuffer;
@@ -127,14 +126,15 @@ export function useRecordPlayback({
   const awaitingGestureRef = useRef(false);
   const [rate, setRate] = useState(0);
   const [playing, setPlaying] = useState(false);
-  const [currentTrack, setCurrentTrack] = useState<Track | null>(null);
+  const [currentTrack, setCurrentTrack] = useState<Track | null>(
+    tracks[0] ?? null,
+  );
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
 
   const selectTrack = useCallback((selected: Track) => {
     selectedTrackRef.current = selected;
     setCurrentTrack(selected);
     setElapsedSeconds(0);
-    prefetchAudio(getTrackUrl(selected));
     return selected;
   }, []);
 
@@ -369,12 +369,11 @@ export function useRecordPlayback({
     setPitchFollowsSpeed(audio);
 
     const ctx = ensureAudioContext();
-    void prepareScratchEngine(ctx, selectedTrackRef.current);
     if (ctx.state === "suspended") {
       void ctx.resume();
     }
     return true;
-  }, [chooseRandomTrack, ensureAudioContext, prepareScratchEngine]);
+  }, [chooseRandomTrack, ensureAudioContext]);
 
   const prepare = useCallback(async () => {
     const audio = audioRef.current;
@@ -384,14 +383,8 @@ export function useRecordPlayback({
       audio.src = getTrackUrl(chooseRandomTrack());
     }
     setPitchFollowsSpeed(audio);
-
-    const ctx = ensureAudioContext();
-    void prepareScratchEngine(ctx, selectedTrackRef.current);
-    if (ctx.state === "suspended") {
-      await ctx.resume();
-    }
     return true;
-  }, [chooseRandomTrack, ensureAudioContext, prepareScratchEngine]);
+  }, [chooseRandomTrack]);
 
   const playFromGesture = useCallback(() => {
     const audio = audioRef.current;
@@ -791,6 +784,7 @@ export function useRecordPlayback({
 
     let active = true;
     let detachGestureUnlock: (() => void) | undefined;
+    let bootTimer: number | undefined;
 
     const attachGestureUnlock = () => {
       const unlock = () => {
@@ -815,6 +809,7 @@ export function useRecordPlayback({
     };
 
     const boot = async () => {
+      if (runningRef.current) return;
       chooseRandomTrack();
       if (!active) return;
 
@@ -852,11 +847,23 @@ export function useRecordPlayback({
       }
     };
 
-    void boot();
+    const scheduleBoot = () => {
+      bootTimer = window.setTimeout(() => {
+        void boot();
+      }, 250);
+    };
+
+    if (document.readyState === "complete") {
+      scheduleBoot();
+    } else {
+      window.addEventListener("load", scheduleBoot, { once: true });
+    }
 
     return () => {
       active = false;
       bootedRef.current = false;
+      window.removeEventListener("load", scheduleBoot);
+      if (bootTimer !== undefined) window.clearTimeout(bootTimer);
       detachGestureUnlock?.();
     };
   }, [

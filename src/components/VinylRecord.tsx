@@ -63,7 +63,7 @@ export function VinylRecord({
 
   useEffect(() => {
     const disc = discRef.current;
-    if (!disc) return;
+    if (!disc || !playing) return;
 
     const reduceMotion = window.matchMedia(
       "(prefers-reduced-motion: reduce)",
@@ -94,7 +94,7 @@ export function VinylRecord({
         clearTimeout(scrubIdleTimerRef.current);
       }
     };
-  }, []);
+  }, [playing]);
 
   const getPointerAngle = (
     element: HTMLElement,
