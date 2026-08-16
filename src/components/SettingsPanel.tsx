@@ -157,6 +157,11 @@ export function SettingsPanel({
               checked={settings.autohideJuke}
               onChange={(value) => onChange("autohideJuke", value)}
             />
+            <ToggleRow
+              label="Show Jazz Jukebox title"
+              checked={settings.showBrand}
+              onChange={(value) => onChange("showBrand", value)}
+            />
           </section>
 
           <section className="settings-section">

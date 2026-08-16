@@ -259,6 +259,17 @@ function JazzPlayerContent({ settings, updateSetting }: JazzPlayerContentProps) 
           playing ? "" : "pause-vignette--visible"
         }`}
       />
+      {settings.showBrand ? (
+        <div
+          className={`scene-brand ${
+            dialVisible || settingsOpen ? "scene-brand--hidden" : ""
+          }`}
+          aria-hidden="true"
+        >
+          <span className="scene-brand__jazz">JAZZ</span>
+          <span className="scene-brand__jukebox">JUKEBOX</span>
+        </div>
+      ) : null}
 
       <audio ref={audioRef} preload="auto" playsInline />
 

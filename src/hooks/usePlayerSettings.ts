@@ -7,6 +7,7 @@ export type VinylDisplay = "off" | "left" | "right";
 export type PlayerSettings = {
   vinylDisplay: VinylDisplay;
   autohideJuke: boolean;
+  showBrand: boolean;
   volume: number;
   staticLevel: number;
 };
@@ -16,6 +17,7 @@ const STORAGE_KEY = "noir-jazz-settings";
 export const defaultSettings: PlayerSettings = {
   vinylDisplay: "left",
   autohideJuke: true,
+  showBrand: false,
   volume: 0.72,
   staticLevel: 1,
 };
@@ -53,6 +55,7 @@ export function readSettings(): PlayerSettings {
     return {
       vinylDisplay: readVinylDisplay(parsed),
       autohideJuke: parsed.autohideJuke ?? defaultSettings.autohideJuke,
+      showBrand: parsed.showBrand ?? defaultSettings.showBrand,
       volume: clamp01(parsed.volume ?? defaultSettings.volume),
       staticLevel: clamp01(parsed.staticLevel ?? defaultSettings.staticLevel),
     };

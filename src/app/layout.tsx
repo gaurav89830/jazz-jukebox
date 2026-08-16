@@ -1,6 +1,12 @@
 import type { Metadata, Viewport } from "next";
+import { Bodoni_Moda } from "next/font/google";
 import { siteConfig, siteUrl } from "@/config/site";
 import "./globals.css";
+
+const displayFont = Bodoni_Moda({
+  subsets: ["latin"],
+  variable: "--font-display",
+});
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
@@ -19,8 +25,8 @@ export const metadata: Metadata = {
     canonical: "/",
   },
   icons: {
-    icon: [{ url: "/icon.svg", type: "image/svg+xml" }],
-    apple: [{ url: "/apple-icon.svg", type: "image/svg+xml" }],
+    icon: [{ url: "/icon.png?v=2", type: "image/png" }],
+    apple: [{ url: "/apple-icon.png?v=2", type: "image/png" }],
   },
   robots: {
     index: true,
@@ -71,7 +77,10 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className="h-full antialiased">
+    <html
+      lang="en"
+      className={`${displayFont.variable} h-full antialiased`}
+    >
       <body className="min-h-full">{children}</body>
     </html>
   );

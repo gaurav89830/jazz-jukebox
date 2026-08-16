@@ -61,6 +61,48 @@ body {
   opacity: 1;
 }
 
+.scene-brand {
+  position: absolute;
+  top: 42%;
+  left: 50%;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  color: rgba(228, 201, 149, 0.82);
+  font-family: var(--font-display), Didot, "Bodoni 72", serif;
+  font-size: clamp(3.2rem, 8.5vw, 8.2rem);
+  font-weight: 700;
+  line-height: 0.76;
+  text-align: center;
+  text-shadow:
+    0 2px 1px rgba(0, 0, 0, 0.78),
+    0 0 2.5rem rgba(201, 161, 91, 0.12);
+  pointer-events: none;
+  opacity: 1;
+  transform: translate(-50%, -50%);
+  transition:
+    opacity 420ms ease,
+    transform 560ms ease;
+}
+
+.scene-brand__jazz {
+  margin-right: -0.5em;
+  margin-bottom: 0.34em;
+  font-size: 0.38em;
+  font-weight: 600;
+  letter-spacing: 0.5em;
+}
+
+.scene-brand__jukebox {
+  letter-spacing: 0.045em;
+}
+
+.scene-brand--hidden {
+  opacity: 0;
+  transform: translate(-50%, -46%);
+}
+
 .track-skip-button {
   display: inline-grid;
   width: 1.25rem;
@@ -176,6 +218,11 @@ body {
 }
 
 @media (max-width: 639px) {
+  .scene-brand {
+    top: 39%;
+    font-size: clamp(2.8rem, 15vw, 4.8rem);
+  }
+
   .player-panel {
     left: 1rem;
     bottom: max(1.25rem, env(safe-area-inset-bottom));
@@ -457,7 +504,8 @@ body {
 
 @media (prefers-reduced-motion: reduce) {
   .player-scene,
-  .pause-vignette {
+  .pause-vignette,
+  .scene-brand {
     transition: none;
   }
 
