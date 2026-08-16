@@ -49,7 +49,10 @@ export function TrackDial({
       <div className="track-dial__glass" aria-hidden="true" />
 
       <div className="track-dial__panel">
-        <p className="track-dial__brand">JUKEBOX</p>
+        <p className="track-dial__brand">
+          <span>JAZZ</span>
+          <span>JUKEBOX</span>
+        </p>
         <div className="track-dial__list">
         {visibleTracks.map(({ track, index, offset }) => {
           const distance = Math.abs(offset);

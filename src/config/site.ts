@@ -3,15 +3,15 @@ export const siteUrl = (
 ).replace(/\/$/, "");
 
 export const siteConfig = {
-  name: "Midnight Jazz",
-  shortName: "Midnight Jazz",
-  title: "Midnight Jazz — Noir Vinyl Player",
+  name: "Jazz Jukebox",
+  shortName: "Jazz Jukebox",
+  title: "Jazz Jukebox — Noir Vinyl Player",
   description:
-    "A cinematic noir jazz player with a spinning vinyl record, curated late-night tracks, and a retro jukebox. Press play and drift into smoke, sax, and midnight ambience.",
+    "A cinematic noir jazz jukebox with a spinning vinyl record, curated late-night tracks, and a retro atmosphere. Press play and drift into smoke, sax, and midnight ambience.",
   tagline: "Noir jazz on vinyl, full screen.",
   locale: "en_US",
   keywords: [
-    "jazz player",
+    "jazz jukebox",
     "vinyl player",
     "noir jazz",
     "online jazz radio",
