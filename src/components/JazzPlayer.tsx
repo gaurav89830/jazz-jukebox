@@ -379,7 +379,11 @@ function JazzPlayerContent({ settings, updateSetting }: JazzPlayerContentProps) 
       </section>
 
       {vinylOnRight ? (
-        <div className="player-vinyl-float">
+        <div
+          className={`player-vinyl-float ${
+            dialVisible ? "player-vinyl-float--hidden" : ""
+          }`}
+        >
           <VinylRecord
             className="player-vinyl-float__record"
             rate={rate}
