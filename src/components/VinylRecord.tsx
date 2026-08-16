@@ -6,6 +6,9 @@ type VinylRecordProps = {
   rate: number;
   playing: boolean;
   onToggle: () => void;
+  onScrubStart: () => void;
+  onScrub: (deltaSeconds: number, scrubSpeed: number) => void;
+  onScrubEnd: () => void;
   className?: string;
 };
 
@@ -39,11 +42,20 @@ export function VinylRecord({
   rate,
   playing,
   onToggle,
+  onScrubStart,
+  onScrub,
+  onScrubEnd,
   className,
 }: VinylRecordProps) {
   const discRef = useRef<HTMLDivElement>(null);
   const angleRef = useRef(0);
   const rateRef = useRef(rate);
+  const scrubRef = useRef<{
+    pointerId: number;
+    angle: number;
+    time: number;
+  } | null>(null);
+  const scrubIdleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     rateRef.current = rate;
@@ -64,6 +76,10 @@ export function VinylRecord({
     const tick = (now: number) => {
       const dt = Math.min(0.05, (now - last) / 1000);
       last = now;
+      if (scrubRef.current) {
+        frame = requestAnimationFrame(tick);
+        return;
+      }
       angleRef.current =
         (angleRef.current + FULL_SPEED_DEG_PER_SEC * rateRef.current * dt) %
         360;
@@ -72,8 +88,35 @@ export function VinylRecord({
     };
 
     frame = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(frame);
+    return () => {
+      cancelAnimationFrame(frame);
+      if (scrubIdleTimerRef.current) {
+        clearTimeout(scrubIdleTimerRef.current);
+      }
+    };
   }, []);
+
+  const getPointerAngle = (
+    element: HTMLElement,
+    clientX: number,
+    clientY: number,
+  ) => {
+    const rect = element.getBoundingClientRect();
+    return Math.atan2(
+      clientY - (rect.top + rect.height / 2),
+      clientX - (rect.left + rect.width / 2),
+    );
+  };
+
+  const finishScrub = (pointerId: number) => {
+    if (scrubRef.current?.pointerId !== pointerId) return;
+    if (scrubIdleTimerRef.current) {
+      clearTimeout(scrubIdleTimerRef.current);
+      scrubIdleTimerRef.current = null;
+    }
+    scrubRef.current = null;
+    onScrubEnd();
+  };
 
   return (
     <button
@@ -83,10 +126,73 @@ export function VinylRecord({
       onPointerDown={(event) => {
         if (!event.isPrimary) return;
         event.preventDefault();
-        onToggle();
+
+        const rect = event.currentTarget.getBoundingClientRect();
+        const distanceFromCenter = Math.hypot(
+          event.clientX - (rect.left + rect.width / 2),
+          event.clientY - (rect.top + rect.height / 2),
+        );
+        if (distanceFromCenter <= Math.min(rect.width, rect.height) * 0.18) {
+          onToggle();
+          return;
+        }
+
+        event.currentTarget.setPointerCapture(event.pointerId);
+        scrubRef.current = {
+          pointerId: event.pointerId,
+          angle: getPointerAngle(
+            event.currentTarget,
+            event.clientX,
+            event.clientY,
+          ),
+          time: performance.now(),
+        };
+        onScrubStart();
       }}
-      aria-label={playing ? "Pause Noir Jazz" : "Play Noir Jazz"}
-      aria-pressed={playing}
+      onPointerMove={(event) => {
+        const scrub = scrubRef.current;
+        if (!scrub || scrub.pointerId !== event.pointerId) return;
+        event.preventDefault();
+
+        const now = performance.now();
+        const nextAngle = getPointerAngle(
+          event.currentTarget,
+          event.clientX,
+          event.clientY,
+        );
+        let deltaRadians = nextAngle - scrub.angle;
+        if (deltaRadians > Math.PI) deltaRadians -= Math.PI * 2;
+        if (deltaRadians < -Math.PI) deltaRadians += Math.PI * 2;
+
+        const deltaDegrees = (deltaRadians * 180) / Math.PI;
+        const deltaSeconds = deltaDegrees / FULL_SPEED_DEG_PER_SEC;
+        const elapsed = Math.max(0.001, (now - scrub.time) / 1000);
+
+        angleRef.current = (angleRef.current + deltaDegrees + 360) % 360;
+        if (discRef.current) {
+          discRef.current.style.transform = `rotate(${angleRef.current}deg)`;
+        }
+
+        scrub.angle = nextAngle;
+        scrub.time = now;
+        onScrub(deltaSeconds, deltaSeconds / elapsed);
+        if (scrubIdleTimerRef.current) {
+          clearTimeout(scrubIdleTimerRef.current);
+        }
+        scrubIdleTimerRef.current = setTimeout(() => {
+          onScrub(0, 0);
+          scrubIdleTimerRef.current = null;
+        }, 45);
+      }}
+      onPointerUp={(event) => finishScrub(event.pointerId)}
+      onPointerCancel={(event) => finishScrub(event.pointerId)}
+      onLostPointerCapture={(event) => finishScrub(event.pointerId)}
+      onContextMenu={(event) => event.preventDefault()}
+      aria-label={
+        playing
+          ? "Press the center to pause, or rotate the record to scrub"
+          : "Press the center to play, or rotate the record to scrub"
+      }
     >
       <div className="vinyl-shell">
         <div ref={discRef} className="vinyl-disc">

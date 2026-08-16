@@ -41,6 +41,9 @@ function JazzPlayerContent({ settings, updateSetting }: JazzPlayerContentProps) 
     beginSeekScrub,
     scrubTo,
     endSeekScrub,
+    beginVinylScrub,
+    scrubVinylBy,
+    endVinylScrub,
   } = useRecordPlayback({
     volume: settings.volume,
     staticLevel: settings.staticLevel,
@@ -170,6 +173,21 @@ function JazzPlayerContent({ settings, updateSetting }: JazzPlayerContentProps) 
         return;
       }
 
+      if (
+        event.code === "KeyF" &&
+        !event.metaKey &&
+        !event.ctrlKey &&
+        !event.altKey
+      ) {
+        event.preventDefault();
+        if (document.fullscreenElement) {
+          void document.exitFullscreen();
+        } else {
+          void document.documentElement.requestFullscreen();
+        }
+        return;
+      }
+
       if (settingsOpen) return;
 
       if (event.code === "Space") {
@@ -256,6 +274,9 @@ function JazzPlayerContent({ settings, updateSetting }: JazzPlayerContentProps) 
               rate={rate}
               playing={playing}
               onToggle={() => void toggleCenter()}
+              onScrubStart={beginVinylScrub}
+              onScrub={scrubVinylBy}
+              onScrubEnd={endVinylScrub}
             />
           </div>
         ) : null}
@@ -353,6 +374,9 @@ function JazzPlayerContent({ settings, updateSetting }: JazzPlayerContentProps) 
             rate={rate}
             playing={playing}
             onToggle={() => void toggleCenter()}
+            onScrubStart={beginVinylScrub}
+            onScrub={scrubVinylBy}
+            onScrubEnd={endVinylScrub}
           />
         </div>
       ) : null}

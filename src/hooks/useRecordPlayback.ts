@@ -102,10 +102,27 @@ export function useRecordPlayback({
   const crackleRef = useRef<GainNode | null>(null);
   const scrubRef = useRef<ScrubBus | null>(null);
   const scrubbingRef = useRef(false);
+  const vinylScrubWasPlayingRef = useRef(false);
   const rateRef = useRef(0);
   const staticLevelRef = useRef(staticLevel);
+  const volumeRef = useRef(volume);
   const runningRef = useRef(false);
   const selectedTrackRef = useRef<Track | null>(null);
+  const scratchBufferRef = useRef<{
+    trackId: string;
+    buffer: AudioBuffer;
+  } | null>(null);
+  const scratchLoadRef = useRef<{
+    trackId: string;
+    promise: Promise<AudioBuffer | null>;
+  } | null>(null);
+  const scratchNodeRef = useRef<AudioWorkletNode | null>(null);
+  const scratchNodePromiseRef = useRef<Promise<AudioWorkletNode | null> | null>(
+    null,
+  );
+  const scratchNodeTrackRef = useRef<string | null>(null);
+  const scratchGainRef = useRef<GainNode | null>(null);
+  const vinylScrubRateRef = useRef(0);
   const rampTokenRef = useRef(0);
   const awaitingGestureRef = useRef(false);
   const [rate, setRate] = useState(0);
@@ -192,7 +209,11 @@ export function useRecordPlayback({
 
   useEffect(() => {
     const audio = audioRef.current;
+    volumeRef.current = volume;
     if (audio) audio.volume = Math.max(0, Math.min(1, volume));
+    if (scratchGainRef.current) {
+      scratchGainRef.current.gain.value = Math.max(0, Math.min(1, volume));
+    }
   }, [volume]);
 
   const rampTo = useCallback(
@@ -248,6 +269,96 @@ export function useRecordPlayback({
     return ctx;
   }, []);
 
+  const loadScratchBuffer = useCallback(
+    (ctx: AudioContext, track: Track | null) => {
+      if (!track) return Promise.resolve(null);
+      if (scratchBufferRef.current?.trackId === track.id) {
+        return Promise.resolve(scratchBufferRef.current.buffer);
+      }
+      if (scratchLoadRef.current?.trackId === track.id) {
+        return scratchLoadRef.current.promise;
+      }
+
+      const promise = fetch(getTrackUrl(track), { cache: "force-cache" })
+        .then((response) => {
+          if (!response.ok) throw new Error("Unable to load scratch audio");
+          return response.arrayBuffer();
+        })
+        .then((data) => ctx.decodeAudioData(data))
+        .then((buffer) => {
+          if (selectedTrackRef.current?.id === track.id) {
+            scratchBufferRef.current = { trackId: track.id, buffer };
+          }
+          return buffer;
+        })
+        .catch(() => null);
+
+      scratchLoadRef.current = { trackId: track.id, promise };
+      return promise;
+    },
+    [],
+  );
+
+  const prepareScratchEngine = useCallback(
+    async (ctx: AudioContext, track: Track | null) => {
+      if (!track || !ctx.audioWorklet) return null;
+
+      let node = scratchNodeRef.current;
+      if (!node) {
+        if (!scratchNodePromiseRef.current) {
+          scratchNodePromiseRef.current = ctx.audioWorklet
+            .addModule("/audio/vinyl-scratch-processor.js")
+            .then(() => {
+              const created = new AudioWorkletNode(
+                ctx,
+                "vinyl-scratch-processor",
+                {
+                  numberOfInputs: 0,
+                  numberOfOutputs: 1,
+                  outputChannelCount: [2],
+                },
+              );
+              const gain = ctx.createGain();
+              gain.gain.value = Math.max(0, Math.min(1, volumeRef.current));
+              created.connect(gain).connect(ctx.destination);
+              scratchGainRef.current = gain;
+              created.port.onmessage = ({ data }) => {
+                if (data.type !== "position") return;
+                const audio = audioRef.current;
+                if (!audio) return;
+                audio.currentTime = data.positionSeconds;
+                setElapsedSeconds(data.positionSeconds);
+              };
+              scratchNodeRef.current = created;
+              return created;
+            })
+            .catch(() => null);
+        }
+        node = await scratchNodePromiseRef.current;
+      }
+
+      if (!node || scratchNodeTrackRef.current === track.id) return node;
+      const buffer = await loadScratchBuffer(ctx, track);
+      if (!buffer || selectedTrackRef.current?.id !== track.id) return node;
+
+      const channels = Array.from(
+        { length: buffer.numberOfChannels },
+        (_, channel) => buffer.getChannelData(channel).slice(),
+      );
+      node.port.postMessage(
+        {
+          type: "load",
+          channels,
+          sampleRate: buffer.sampleRate,
+        },
+        channels.map((channel) => channel.buffer),
+      );
+      scratchNodeTrackRef.current = track.id;
+      return node;
+    },
+    [loadScratchBuffer],
+  );
+
   const engageFromGesture = useCallback(() => {
     const audio = audioRef.current;
     if (!audio) return false;
@@ -258,11 +369,12 @@ export function useRecordPlayback({
     setPitchFollowsSpeed(audio);
 
     const ctx = ensureAudioContext();
+    void prepareScratchEngine(ctx, selectedTrackRef.current);
     if (ctx.state === "suspended") {
       void ctx.resume();
     }
     return true;
-  }, [chooseRandomTrack, ensureAudioContext]);
+  }, [chooseRandomTrack, ensureAudioContext, prepareScratchEngine]);
 
   const prepare = useCallback(async () => {
     const audio = audioRef.current;
@@ -274,11 +386,12 @@ export function useRecordPlayback({
     setPitchFollowsSpeed(audio);
 
     const ctx = ensureAudioContext();
+    void prepareScratchEngine(ctx, selectedTrackRef.current);
     if (ctx.state === "suspended") {
       await ctx.resume();
     }
     return true;
-  }, [chooseRandomTrack, ensureAudioContext]);
+  }, [chooseRandomTrack, ensureAudioContext, prepareScratchEngine]);
 
   const playFromGesture = useCallback(() => {
     const audio = audioRef.current;
@@ -455,7 +568,7 @@ export function useRecordPlayback({
     : -1;
 
   const setScrubLevel = useCallback((level: number) => {
-    if (!runningRef.current) return;
+    if (!runningRef.current && !scrubbingRef.current) return;
 
     const ctx = contextRef.current;
     const scrub = scrubRef.current;
@@ -533,6 +646,84 @@ export function useRecordPlayback({
     },
     [],
   );
+
+  const beginVinylScrub = useCallback(() => {
+    engageFromGesture();
+
+    const audio = audioRef.current;
+    vinylScrubWasPlayingRef.current = runningRef.current;
+    scrubbingRef.current = true;
+    ++rampTokenRef.current;
+    runningRef.current = false;
+    setPlaying(false);
+    muteAuxAudio();
+    audio?.pause();
+    setSpeed(0);
+    vinylScrubRateRef.current = 0;
+
+    const ctx = contextRef.current;
+    const track = selectedTrackRef.current;
+    if (ctx && track) {
+      void prepareScratchEngine(ctx, track).then((node) => {
+        if (!node || !scrubbingRef.current) return;
+        node.port.postMessage({
+          type: "start",
+          positionSeconds: audioRef.current?.currentTime ?? 0,
+        });
+        node.port.postMessage({
+          type: "rate",
+          rate: vinylScrubRateRef.current,
+        });
+      });
+    }
+  }, [
+    engageFromGesture,
+    muteAuxAudio,
+    prepareScratchEngine,
+    setSpeed,
+  ]);
+
+  const scrubVinylBy = useCallback(
+    (deltaSeconds: number, scrubSpeed = 0) => {
+      const audio = audioRef.current;
+      if (!audio || !scrubbingRef.current) return;
+
+      vinylScrubRateRef.current = scrubSpeed;
+      const node = scratchNodeRef.current;
+      if (node && scratchNodeTrackRef.current === selectedTrackRef.current?.id) {
+        node.port.postMessage({ type: "rate", rate: scrubSpeed });
+        return;
+      }
+
+      const duration = resolveDuration(
+        audio,
+        selectedTrackRef.current?.durationSeconds ?? 0,
+      );
+      const position = Math.max(
+        0,
+        Math.min(duration, audio.currentTime + deltaSeconds),
+      );
+      audio.currentTime = position;
+      setElapsedSeconds(position);
+    },
+    [],
+  );
+
+  const endVinylScrub = useCallback(() => {
+    if (!scrubbingRef.current) return;
+    scrubbingRef.current = false;
+    vinylScrubRateRef.current = 0;
+    scratchNodeRef.current?.port.postMessage({ type: "rate", rate: 0 });
+    scratchNodeRef.current?.port.postMessage({ type: "stop" });
+
+    const shouldResume = vinylScrubWasPlayingRef.current;
+    vinylScrubWasPlayingRef.current = false;
+    if (shouldResume) {
+      window.setTimeout(() => {
+        void playFromGesture();
+      }, 35);
+    }
+  }, [playFromGesture]);
 
   const seekTo = useCallback(
     async (seconds: number) => {
@@ -686,6 +877,9 @@ export function useRecordPlayback({
       contextRef.current = null;
       crackleRef.current = null;
       scrubRef.current = null;
+      scratchNodeRef.current = null;
+      scratchNodePromiseRef.current = null;
+      scratchGainRef.current = null;
       if (ctx && ctx.state !== "closed") {
         void ctx.close();
       }
@@ -708,6 +902,9 @@ export function useRecordPlayback({
     beginSeekScrub,
     scrubTo,
     endSeekScrub,
+    beginVinylScrub,
+    scrubVinylBy,
+    endVinylScrub,
     seekTo,
   };
 }
