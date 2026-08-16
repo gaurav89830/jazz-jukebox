@@ -12,7 +12,7 @@ export function getStructuredData() {
       url: `${siteUrl}/#track-${track.id}`,
       duration: `PT${Math.round(track.durationSeconds)}S`,
       encodingFormat: track.mimeType,
-      contentUrl: getTrackUrl(track),
+      contentUrl: `${siteUrl}${getTrackUrl(track)}`,
     },
   }));
 
@@ -58,7 +58,7 @@ export function getStructuredData() {
         url: `${siteUrl}/#track-${track.id}`,
         duration: `PT${Math.round(track.durationSeconds)}S`,
         encodingFormat: track.mimeType,
-        contentUrl: getTrackUrl(track),
+        contentUrl: `${siteUrl}${getTrackUrl(track)}`,
       })),
     },
     {

@@ -34,5 +34,9 @@ export const audioBaseUrl = (
 ).replace(/\/$/, "");
 
 export function getTrackUrl(track: Track) {
-  return `${audioBaseUrl}/${encodeURIComponent(track.file)}`;
+  const filePath = track.file
+    .split("/")
+    .map(encodeURIComponent)
+    .join("/");
+  return `/api/audio/${filePath}`;
 }

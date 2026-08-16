@@ -321,6 +321,17 @@ function JazzPlayerContent({ settings, updateSetting }: JazzPlayerContentProps) 
               type="button"
               tabIndex={-1}
               onMouseDown={(event) => event.preventDefault()}
+              onClick={() => void toggleCenter()}
+              className="track-skip-button"
+              aria-label={playing ? "Pause" : "Play"}
+              title={playing ? "Pause" : "Play"}
+            >
+              {playing ? "Ⅱ" : "▶"}
+            </button>
+            <button
+              type="button"
+              tabIndex={-1}
+              onMouseDown={(event) => event.preventDefault()}
               onClick={() => void nextTrack()}
               className="track-skip-button"
               aria-label="Next track"

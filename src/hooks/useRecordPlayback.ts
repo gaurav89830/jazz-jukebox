@@ -6,6 +6,7 @@ import {
   tracks,
   type Track,
 } from "@/config/player";
+import { prefetchAudio } from "@/lib/prefetch-audio";
 
 const MIN_RATE = 0.08;
 
@@ -106,8 +107,9 @@ export function useRecordPlayback({
   const runningRef = useRef(false);
   const selectedTrackRef = useRef<Track | null>(null);
   const rampTokenRef = useRef(0);
-  const [rate, setRate] = useState(1);
-  const [playing, setPlaying] = useState(true);
+  const awaitingGestureRef = useRef(false);
+  const [rate, setRate] = useState(0);
+  const [playing, setPlaying] = useState(false);
   const [currentTrack, setCurrentTrack] = useState<Track | null>(null);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
 
@@ -115,6 +117,7 @@ export function useRecordPlayback({
     selectedTrackRef.current = selected;
     setCurrentTrack(selected);
     setElapsedSeconds(0);
+    prefetchAudio(getTrackUrl(selected));
     return selected;
   }, []);
 
@@ -157,6 +160,22 @@ export function useRecordPlayback({
     }
   }, []);
 
+  const markAwaitingGesture = useCallback(() => {
+    awaitingGestureRef.current = true;
+    runningRef.current = false;
+    setPlaying(false);
+    muteAuxAudio();
+    setSpeed(0);
+  }, [muteAuxAudio, setSpeed]);
+
+  const clearAwaitingGesture = useCallback(() => {
+    awaitingGestureRef.current = false;
+  }, []);
+
+  const isAudioActive = useCallback((audio: HTMLAudioElement) => {
+    return !audio.paused && !audio.ended;
+  }, []);
+
   useEffect(() => {
     staticLevelRef.current = staticLevel;
     if (!runningRef.current) return;
@@ -183,7 +202,22 @@ export function useRecordPlayback({
       const started = performance.now();
 
       return new Promise<boolean>((resolve) => {
-        const frame = (now: number) => {
+        let animationFrame = 0;
+        let timer = 0;
+        let stepPending = false;
+
+        const scheduleStep = () => {
+          stepPending = true;
+          animationFrame = requestAnimationFrame(step);
+          timer = window.setTimeout(() => step(performance.now()), 50);
+        };
+
+        const step = (now: number) => {
+          if (!stepPending) return;
+          stepPending = false;
+          cancelAnimationFrame(animationFrame);
+          window.clearTimeout(timer);
+
           if (token !== rampTokenRef.current) {
             resolve(false);
             return;
@@ -191,12 +225,13 @@ export function useRecordPlayback({
           const progress = Math.min(1, (now - started) / duration);
           setSpeed(start + (target - start) * easeOut(progress));
           if (progress < 1) {
-            requestAnimationFrame(frame);
+            scheduleStep();
           } else {
             resolve(true);
           }
         };
-        requestAnimationFrame(frame);
+
+        scheduleStep();
       });
     },
     [setSpeed],
@@ -252,43 +287,57 @@ export function useRecordPlayback({
     }
 
     ++rampTokenRef.current;
-    runningRef.current = true;
-    setPlaying(true);
     setSpeed(Math.max(MIN_RATE, rateRef.current));
 
     return audio
       .play()
-      .then(() => rampTo(1, 1100))
+      .then(() => {
+        runningRef.current = true;
+        setPlaying(true);
+        clearAwaitingGesture();
+        return rampTo(1, 1100);
+      })
       .then(() => true)
       .catch(() => {
-        runningRef.current = false;
-        setPlaying(false);
-        muteAuxAudio();
-        setSpeed(0);
+        markAwaitingGesture();
         return false;
       });
-  }, [engageFromGesture, muteAuxAudio, rampTo, setSpeed]);
+  }, [
+    clearAwaitingGesture,
+    engageFromGesture,
+    markAwaitingGesture,
+    rampTo,
+    setSpeed,
+  ]);
 
   const start = useCallback(async () => {
     const audio = audioRef.current;
-    if (!audio || !(await prepare())) return false;
+    if (!audio || !(await prepare())) {
+      markAwaitingGesture();
+      return false;
+    }
 
     ++rampTokenRef.current;
-    runningRef.current = true;
-    setPlaying(true);
     setSpeed(Math.max(MIN_RATE, rateRef.current));
     try {
       await audio.play();
+      runningRef.current = true;
+      setPlaying(true);
+      clearAwaitingGesture();
       await rampTo(1, 1100);
-      return true;
+      return isAudioActive(audio);
     } catch {
-      runningRef.current = false;
-      setPlaying(false);
-      muteAuxAudio();
-      setSpeed(0);
+      markAwaitingGesture();
       return false;
     }
-  }, [muteAuxAudio, prepare, rampTo, setSpeed]);
+  }, [
+    clearAwaitingGesture,
+    isAudioActive,
+    markAwaitingGesture,
+    prepare,
+    rampTo,
+    setSpeed,
+  ]);
 
   const pause = useCallback(async () => {
     const audio = audioRef.current;
@@ -311,6 +360,39 @@ export function useRecordPlayback({
     void playFromGesture();
   }, [pause, playFromGesture]);
 
+  useEffect(() => {
+    if (!("mediaSession" in navigator)) return;
+
+    const mediaSession = navigator.mediaSession;
+    const handleMediaPlay = () => {
+      void playFromGesture();
+    };
+    const handleMediaPause = () => {
+      // Some system media-key implementations keep dispatching "pause" after
+      // a background tab has paused instead of switching to the "play" action.
+      // Treat that repeated action as a toggle so the same key can resume.
+      if (runningRef.current) {
+        void pause();
+      } else {
+        void playFromGesture();
+      }
+    };
+
+    mediaSession.setActionHandler("play", handleMediaPlay);
+    mediaSession.setActionHandler("pause", handleMediaPause);
+
+    return () => {
+      mediaSession.setActionHandler("play", null);
+      mediaSession.setActionHandler("pause", null);
+    };
+  }, [pause, playFromGesture]);
+
+  useEffect(() => {
+    if ("mediaSession" in navigator) {
+      navigator.mediaSession.playbackState = playing ? "playing" : "paused";
+    }
+  }, [playing]);
+
   const loadAndPlayTrack = useCallback(
     (selected: Track) => {
       const audio = audioRef.current;
@@ -321,21 +403,27 @@ export function useRecordPlayback({
       audio.src = getTrackUrl(selected);
       audio.load();
 
-      runningRef.current = true;
-      setPlaying(true);
       setSpeed(MIN_RATE);
 
       void audio
         .play()
-        .then(() => rampTo(1, 650))
+        .then(() => {
+          runningRef.current = true;
+          setPlaying(true);
+          clearAwaitingGesture();
+          return rampTo(1, 1100);
+        })
         .catch(() => {
-          runningRef.current = false;
-          setPlaying(false);
-          muteAuxAudio();
-          setSpeed(0);
+          markAwaitingGesture();
         });
     },
-    [engageFromGesture, muteAuxAudio, rampTo, setSpeed],
+    [
+      clearAwaitingGesture,
+      engageFromGesture,
+      markAwaitingGesture,
+      rampTo,
+      setSpeed,
+    ],
   );
 
   const goToTrackIndex = useCallback(
@@ -476,17 +564,33 @@ export function useRecordPlayback({
     const updateElapsed = () => {
       setElapsedSeconds(audio.currentTime);
     };
+    const handlePlay = () => {
+      runningRef.current = true;
+      setPlaying(true);
+      clearAwaitingGesture();
+      if (rateRef.current === 0) setSpeed(1);
+    };
+    const handlePause = () => {
+      runningRef.current = false;
+      setPlaying(false);
+      muteAuxAudio();
+      setSpeed(0);
+    };
     const handleEnded = () => {
       void nextTrack();
     };
 
     audio.addEventListener("timeupdate", updateElapsed);
+    audio.addEventListener("play", handlePlay);
+    audio.addEventListener("pause", handlePause);
     audio.addEventListener("ended", handleEnded);
     return () => {
       audio.removeEventListener("timeupdate", updateElapsed);
+      audio.removeEventListener("play", handlePlay);
+      audio.removeEventListener("pause", handlePause);
       audio.removeEventListener("ended", handleEnded);
     };
-  }, [nextTrack]);
+  }, [clearAwaitingGesture, muteAuxAudio, nextTrack, setSpeed]);
 
   const bootedRef = useRef(false);
 
@@ -495,13 +599,29 @@ export function useRecordPlayback({
     bootedRef.current = true;
 
     let active = true;
+    let detachGestureUnlock: (() => void) | undefined;
 
-    const unlockPlayback = () => {
-      if (runningRef.current) return;
-      void playFromGesture();
+    const attachGestureUnlock = () => {
+      const unlock = () => {
+        if (!awaitingGestureRef.current) return;
+        void playFromGesture().then((started) => {
+          if (started) detachGestureUnlock?.();
+        });
+      };
+
+      const pointerOptions = { capture: true } as const;
+      const touchOptions = { capture: true, passive: true } as const;
+
+      window.addEventListener("pointerdown", unlock, pointerOptions);
+      window.addEventListener("touchstart", unlock, touchOptions);
+      window.addEventListener("keydown", unlock, pointerOptions);
+
+      return () => {
+        window.removeEventListener("pointerdown", unlock, pointerOptions);
+        window.removeEventListener("touchstart", unlock, touchOptions);
+        window.removeEventListener("keydown", unlock, pointerOptions);
+      };
     };
-
-    const unlockOptions = { capture: true, once: true } as const;
 
     const boot = async () => {
       chooseRandomTrack();
@@ -514,9 +634,30 @@ export function useRecordPlayback({
 
       const started = await start();
       if (!active) return;
-      if (!started) {
-        window.addEventListener("pointerdown", unlockPlayback, unlockOptions);
-        window.addEventListener("touchstart", unlockPlayback, unlockOptions);
+
+      const audioAfterStart = audioRef.current;
+      const actuallyPlaying =
+        started && audioAfterStart ? isAudioActive(audioAfterStart) : false;
+
+      if (!actuallyPlaying) {
+        markAwaitingGesture();
+
+        const retryWhenReady = () => {
+          if (!active || !awaitingGestureRef.current) return;
+          void start().then((retried) => {
+            const audio = audioRef.current;
+            if (retried && audio && isAudioActive(audio)) {
+              clearAwaitingGesture();
+              detachGestureUnlock?.();
+              detachGestureUnlock = undefined;
+            }
+          });
+        };
+
+        audioAfterStart?.addEventListener("canplay", retryWhenReady, {
+          once: true,
+        });
+        detachGestureUnlock = attachGestureUnlock();
       }
     };
 
@@ -525,10 +666,17 @@ export function useRecordPlayback({
     return () => {
       active = false;
       bootedRef.current = false;
-      window.removeEventListener("pointerdown", unlockPlayback, unlockOptions);
-      window.removeEventListener("touchstart", unlockPlayback, unlockOptions);
+      detachGestureUnlock?.();
     };
-  }, [chooseRandomTrack, playFromGesture, start]);
+  }, [
+    chooseRandomTrack,
+    isAudioActive,
+    markAwaitingGesture,
+    playFromGesture,
+    start,
+    clearAwaitingGesture,
+    volume,
+  ]);
 
   useEffect(() => {
     const rampToken = rampTokenRef;
