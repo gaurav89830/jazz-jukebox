@@ -17,7 +17,7 @@ const STORAGE_KEY = "noir-jazz-settings";
 export const defaultSettings: PlayerSettings = {
   vinylDisplay: "left",
   autohideJuke: true,
-  showBrand: false,
+  showBrand: true,
   volume: 0.72,
   staticLevel: 1,
 };
