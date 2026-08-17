@@ -556,6 +556,26 @@ export function useRecordPlayback({
   const nextTrack = useCallback(() => moveTrack(1), [moveTrack]);
   const previousTrack = useCallback(() => moveTrack(-1), [moveTrack]);
 
+  useEffect(() => {
+    if (!("mediaSession" in navigator)) return;
+
+    const mediaSession = navigator.mediaSession;
+    const handleNextTrack = () => {
+      void nextTrack();
+    };
+    const handlePreviousTrack = () => {
+      void previousTrack();
+    };
+
+    mediaSession.setActionHandler("nexttrack", handleNextTrack);
+    mediaSession.setActionHandler("previoustrack", handlePreviousTrack);
+
+    return () => {
+      mediaSession.setActionHandler("nexttrack", null);
+      mediaSession.setActionHandler("previoustrack", null);
+    };
+  }, [nextTrack, previousTrack]);
+
   const currentTrackIndex = currentTrack
     ? tracks.findIndex((track) => track.id === currentTrack.id)
     : -1;

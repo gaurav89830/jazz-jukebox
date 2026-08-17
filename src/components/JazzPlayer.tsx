@@ -100,6 +100,12 @@ function JazzPlayerContent({ settings, updateSetting }: JazzPlayerContentProps) 
     };
   }, []);
 
+  useEffect(() => {
+    if (currentTrack) {
+      document.title = currentTrack.displayTitle;
+    }
+  }, [currentTrack]);
+
   const displayedSeconds = isSeeking ? seekPreviewSeconds : elapsedSeconds;
   const progress =
     durationSeconds > 0
