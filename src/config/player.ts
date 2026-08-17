@@ -25,8 +25,17 @@ export const background: Background = {
 };
 
 export type Track = (typeof catalog.tracks)[number];
+export type Category = (typeof catalog.categories)[number];
+
+export const ALL_CATEGORY_ID = "all";
 
 export const tracks = catalog.tracks;
+export const categories = catalog.categories;
+
+export function getTracksByCategory(categoryId: string): Track[] {
+  if (categoryId === ALL_CATEGORY_ID) return tracks;
+  return tracks.filter((track) => track.categoryId === categoryId);
+}
 
 export const audioBaseUrl = (
   process.env.NEXT_PUBLIC_AUDIO_BASE_URL ??

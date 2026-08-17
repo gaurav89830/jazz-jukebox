@@ -125,6 +125,24 @@ body {
   background: rgba(0, 0, 0, 0.48);
 }
 
+.track-skip-button--active {
+  color: #e4c995;
+  border-color: rgba(228, 201, 149, 0.9);
+  background: rgba(228, 201, 149, 0.16);
+  box-shadow: 0 0 10px rgba(212, 168, 83, 0.35);
+}
+
+.track-skip-button--active:hover {
+  border-color: #e4c995;
+  background: rgba(228, 201, 149, 0.24);
+}
+
+.track-skip-button__icon {
+  display: block;
+  width: 0.68rem;
+  height: 0.68rem;
+}
+
 .player-panel {
   position: absolute;
   bottom: max(1.75rem, env(safe-area-inset-bottom));
@@ -264,6 +282,10 @@ body {
   .track-dial {
     width: min(46vw, 15rem);
     padding-right: 0.75rem;
+  }
+
+  .track-dial--browse {
+    width: min(92vw, 26rem);
   }
 }
 
@@ -533,6 +555,7 @@ body {
   }
 
   .track-dial__item,
+  .track-dial__categories,
   .settings-layer,
   .settings-panel,
   .settings-switch__knob {
@@ -559,6 +582,7 @@ body {
   transition:
     opacity 420ms cubic-bezier(0.22, 1, 0.36, 1),
     transform 420ms cubic-bezier(0.22, 1, 0.36, 1),
+    width 480ms cubic-bezier(0.22, 1, 0.36, 1),
     visibility 0ms linear 420ms;
 }
 
@@ -569,7 +593,12 @@ body {
   transition:
     opacity 480ms cubic-bezier(0.22, 1, 0.36, 1),
     transform 480ms cubic-bezier(0.22, 1, 0.36, 1),
+    width 480ms cubic-bezier(0.22, 1, 0.36, 1),
     visibility 0ms linear 0ms;
+}
+
+.track-dial--browse {
+  width: min(78vw, 30rem);
 }
 
 .track-dial__glass {
@@ -594,13 +623,55 @@ body {
     );
 }
 
+.track-dial__columns {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  width: 100%;
+  min-width: 0;
+}
+
+.track-dial__categories {
+  display: flex;
+  flex: 0 0 0;
+  flex-direction: column;
+  align-items: flex-end;
+  width: 0;
+  min-width: 0;
+  overflow: hidden;
+  opacity: 0;
+  transform: translateX(1.1rem);
+  pointer-events: none;
+  transition:
+    opacity 380ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 480ms cubic-bezier(0.22, 1, 0.36, 1),
+    flex-basis 480ms cubic-bezier(0.22, 1, 0.36, 1),
+    width 480ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.track-dial--browse .track-dial__categories {
+  flex: 0 0 min(34vw, 11.5rem);
+  width: min(34vw, 11.5rem);
+  overflow: visible;
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.track-dial--visible.track-dial--browse .track-dial__categories {
+  pointer-events: auto;
+}
+
 .track-dial__panel {
   position: relative;
   z-index: 1;
   display: flex;
+  flex: 1 1 auto;
   flex-direction: column;
   align-items: flex-end;
-  width: 100%;
+  width: min(42vw, 17.5rem);
+  min-width: 0;
 }
 
 .track-dial__brand {
@@ -652,6 +723,7 @@ body {
   right: 0;
   display: flex;
   align-items: center;
+  gap: 0.42rem;
   width: max-content;
   max-width: 16rem;
   margin: 0;
@@ -676,12 +748,22 @@ body {
   color: #fff;
 }
 
-.track-dial__item--active {
-  color: #e4c995;
+.track-dial__item--emphasis {
   max-width: 19rem;
-  padding: 0.4rem 0.7rem;
-  background: transparent;
-  box-shadow: none;
+}
+
+.track-dial__item--playing {
+  color: #e4c995;
+}
+
+.track-dial__pointer {
+  flex: none;
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 0.28rem 0 0.28rem 0.42rem;
+  border-color: transparent transparent transparent #e4c995;
+  filter: drop-shadow(0 0 6px rgba(228, 201, 149, 0.7));
 }
 
 .track-dial__title {
@@ -695,10 +777,13 @@ body {
   transition: font-size 480ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-.track-dial__item--active .track-dial__title {
+.track-dial__item--emphasis .track-dial__title {
   font-size: 1.2rem;
   font-weight: 800;
   letter-spacing: 0.01em;
+}
+
+.track-dial__item--playing .track-dial__title {
   text-shadow: 0 0 14px rgba(212, 168, 83, 0.35);
 }
 
@@ -726,15 +811,28 @@ body {
     padding-right: 0.75rem;
   }
 
+  .track-dial--browse {
+    width: min(96vw, 28rem);
+  }
+
+  .track-dial--browse .track-dial__categories {
+    flex-basis: min(38vw, 9.5rem);
+    width: min(38vw, 9.5rem);
+  }
+
+  .track-dial__panel {
+    width: min(72vw, 16rem);
+  }
+
   .track-dial__item {
     max-width: 12rem;
   }
 
-  .track-dial__item--active {
+  .track-dial__item--emphasis {
     max-width: 15rem;
   }
 
-  .track-dial__item--active .track-dial__title {
+  .track-dial__item--emphasis .track-dial__title {
     font-size: 1.05rem;
   }
 

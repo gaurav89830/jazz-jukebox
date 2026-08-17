@@ -3,9 +3,15 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   getTrackUrl,
-  tracks,
+  getTracksByCategory,
+  tracks as allTracks,
   type Track,
 } from "@/config/player";
+import {
+  readSelection,
+  resolveSavedTrack,
+  writeSelection,
+} from "@/lib/selection";
 
 const MIN_RATE = 0.08;
 
@@ -106,7 +112,11 @@ export function useRecordPlayback({
   const staticLevelRef = useRef(staticLevel);
   const volumeRef = useRef(volume);
   const runningRef = useRef(false);
-  const selectedTrackRef = useRef<Track | null>(tracks[0] ?? null);
+  const selectedTrackRef = useRef<Track | null>(allTracks[0] ?? null);
+  const activeCategoryIdRef = useRef(allTracks[0]?.categoryId ?? "");
+  const selectionReadyRef = useRef(false);
+  const resumeSecondsRef = useRef(0);
+  const canPersistProgressRef = useRef(true);
   const scratchBufferRef = useRef<{
     trackId: string;
     buffer: AudioBuffer;
@@ -127,21 +137,131 @@ export function useRecordPlayback({
   const [rate, setRate] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [currentTrack, setCurrentTrack] = useState<Track | null>(
-    tracks[0] ?? null,
+    allTracks[0] ?? null,
   );
+  const [activeCategoryId, setActiveCategoryId] = useState(
+    allTracks[0]?.categoryId ?? "",
+  );
+  const [shuffle, setShuffle] = useState(false);
+  const shuffleRef = useRef(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
 
-  const selectTrack = useCallback((selected: Track) => {
-    selectedTrackRef.current = selected;
-    setCurrentTrack(selected);
-    setElapsedSeconds(0);
-    return selected;
+  const playlistFor = useCallback((categoryId: string) => {
+    const list = getTracksByCategory(categoryId);
+    return list.length > 0 ? list : allTracks;
   }, []);
 
-  const chooseRandomTrack = useCallback(() => {
-    if (selectedTrackRef.current) return selectedTrackRef.current;
+  const persistSelection = useCallback(
+    (track: Track, categoryId: string, progressSeconds = 0) => {
+      writeSelection({
+        trackId: track.id,
+        categoryId,
+        progressSeconds: Math.max(0, progressSeconds),
+        shuffle: shuffleRef.current,
+      });
+    },
+    [],
+  );
 
-    const selected = tracks[Math.floor(Math.random() * tracks.length)];
+  const persistCurrentProgress = useCallback(() => {
+    if (!canPersistProgressRef.current) return;
+    const track = selectedTrackRef.current;
+    if (!track) return;
+    persistSelection(
+      track,
+      activeCategoryIdRef.current,
+      audioRef.current?.currentTime ?? 0,
+    );
+  }, [persistSelection]);
+
+  const applyResumePosition = useCallback((audio: HTMLAudioElement) => {
+    const seconds = resumeSecondsRef.current;
+    if (seconds <= 0) {
+      canPersistProgressRef.current = true;
+      return;
+    }
+
+    const duration = resolveDuration(
+      audio,
+      selectedTrackRef.current?.durationSeconds ?? 0,
+    );
+    if (!duration) return;
+
+    if (seconds >= duration - 1.25) {
+      resumeSecondsRef.current = 0;
+      canPersistProgressRef.current = true;
+      return;
+    }
+
+    const clamped = Math.max(0, Math.min(duration, seconds));
+    audio.currentTime = clamped;
+    setElapsedSeconds(clamped);
+    resumeSecondsRef.current = 0;
+    canPersistProgressRef.current = true;
+  }, []);
+
+  const scheduleResumePosition = useCallback(
+    (audio: HTMLAudioElement) => {
+      if (resumeSecondsRef.current <= 0) {
+        canPersistProgressRef.current = true;
+        return;
+      }
+      if (audio.readyState >= 1) {
+        applyResumePosition(audio);
+        return;
+      }
+      audio.addEventListener(
+        "loadedmetadata",
+        () => applyResumePosition(audio),
+        { once: true },
+      );
+    },
+    [applyResumePosition],
+  );
+
+  const selectTrack = useCallback(
+    (
+      selected: Track,
+      categoryId = selected.categoryId,
+      progressSeconds = 0,
+    ) => {
+      selectedTrackRef.current = selected;
+      selectionReadyRef.current = true;
+      resumeSecondsRef.current = progressSeconds;
+      canPersistProgressRef.current = progressSeconds <= 0;
+      if (categoryId !== activeCategoryIdRef.current) {
+        activeCategoryIdRef.current = categoryId;
+        setActiveCategoryId(categoryId);
+      }
+      setCurrentTrack(selected);
+      setElapsedSeconds(progressSeconds);
+      persistSelection(selected, categoryId, progressSeconds);
+      return selected;
+    },
+    [persistSelection],
+  );
+
+  const chooseRandomTrack = useCallback(() => {
+    if (selectionReadyRef.current && selectedTrackRef.current) {
+      return selectedTrackRef.current;
+    }
+
+    const saved = readSelection();
+    if (saved) {
+      shuffleRef.current = saved.shuffle;
+      setShuffle(saved.shuffle);
+    }
+
+    const restored = resolveSavedTrack(saved);
+    if (restored) {
+      return selectTrack(
+        restored.track,
+        restored.categoryId,
+        restored.progressSeconds,
+      );
+    }
+
+    const selected = allTracks[Math.floor(Math.random() * allTracks.length)];
     return selectTrack(selected);
   }, [selectTrack]);
 
@@ -359,6 +479,39 @@ export function useRecordPlayback({
     [loadScratchBuffer],
   );
 
+  const waitForResumePosition = useCallback(
+    async (audio: HTMLAudioElement) => {
+      if (resumeSecondsRef.current <= 0) {
+        canPersistProgressRef.current = true;
+        return;
+      }
+      if (audio.readyState >= 1) {
+        applyResumePosition(audio);
+        return;
+      }
+      await new Promise<void>((resolve) => {
+        let settled = false;
+        const onReady = () => done();
+        const done = (force = false) => {
+          if (settled) return;
+          if (!force && audio.readyState < 1 && resumeSecondsRef.current > 0) {
+            return;
+          }
+          settled = true;
+          audio.removeEventListener("loadedmetadata", onReady);
+          audio.removeEventListener("canplay", onReady);
+          window.clearTimeout(timer);
+          applyResumePosition(audio);
+          resolve();
+        };
+        const timer = window.setTimeout(() => done(true), 2000);
+        audio.addEventListener("loadedmetadata", onReady);
+        audio.addEventListener("canplay", onReady);
+      });
+    },
+    [applyResumePosition],
+  );
+
   const engageFromGesture = useCallback(() => {
     const audio = audioRef.current;
     if (!audio) return false;
@@ -367,13 +520,14 @@ export function useRecordPlayback({
       audio.src = getTrackUrl(chooseRandomTrack());
     }
     setPitchFollowsSpeed(audio);
+    scheduleResumePosition(audio);
 
     const ctx = ensureAudioContext();
     if (ctx.state === "suspended") {
       void ctx.resume();
     }
     return true;
-  }, [chooseRandomTrack, ensureAudioContext]);
+  }, [chooseRandomTrack, ensureAudioContext, scheduleResumePosition]);
 
   const prepare = useCallback(async () => {
     const audio = audioRef.current;
@@ -383,8 +537,9 @@ export function useRecordPlayback({
       audio.src = getTrackUrl(chooseRandomTrack());
     }
     setPitchFollowsSpeed(audio);
+    await waitForResumePosition(audio);
     return true;
-  }, [chooseRandomTrack]);
+  }, [chooseRandomTrack, waitForResumePosition]);
 
   const playFromGesture = useCallback(() => {
     const audio = audioRef.current;
@@ -532,29 +687,100 @@ export function useRecordPlayback({
     ],
   );
 
-  const goToTrackIndex = useCallback(
-    async (index: number) => {
-      const normalized =
-        ((index % tracks.length) + tracks.length) % tracks.length;
-      const selected = selectTrack(tracks[normalized]);
+  const playTrack = useCallback(
+    async (selected: Track, categoryId = activeCategoryIdRef.current) => {
+      selectTrack(selected, categoryId);
       await loadAndPlayTrack(selected);
     },
     [loadAndPlayTrack, selectTrack],
   );
 
-  const moveTrack = useCallback(
-    async (direction: -1 | 1) => {
-      const current = selectedTrackRef.current ?? chooseRandomTrack();
-      const currentIndex = tracks.findIndex((track) => track.id === current.id);
-      const nextIndex =
-        (currentIndex + direction + tracks.length) % tracks.length;
-      await goToTrackIndex(nextIndex);
+  const goToTrackIndex = useCallback(
+    async (index: number) => {
+      const playlist = playlistFor(activeCategoryIdRef.current);
+      if (index < 0 || index >= playlist.length) return;
+      const next = playlist[index];
+      if (!next) return;
+      await playTrack(next);
     },
-    [chooseRandomTrack, goToTrackIndex],
+    [playTrack, playlistFor],
   );
 
-  const nextTrack = useCallback(() => moveTrack(1), [moveTrack]);
+  const enterCategory = useCallback(
+    (categoryId: string) => {
+      const playlist = playlistFor(categoryId);
+      const first = playlist[0];
+      if (!first) return;
+
+      activeCategoryIdRef.current = categoryId;
+      setActiveCategoryId(categoryId);
+
+      const current = selectedTrackRef.current;
+      const inPlaylist = current
+        ? playlist.some((track) => track.id === current.id)
+        : false;
+      if (!inPlaylist) {
+        void playTrack(first);
+        return;
+      }
+      if (current) {
+        persistSelection(
+          current,
+          categoryId,
+          audioRef.current?.currentTime ?? 0,
+        );
+      }
+    },
+    [persistSelection, playTrack, playlistFor],
+  );
+
+  const playShuffledNext = useCallback(async () => {
+    const playlist = playlistFor(activeCategoryIdRef.current);
+    const currentId = selectedTrackRef.current?.id;
+    const pool = playlist.filter((track) => track.id !== currentId);
+    const next =
+      pool[Math.floor(Math.random() * pool.length)] ?? playlist[0];
+    if (!next) return;
+    await playTrack(next);
+  }, [playTrack, playlistFor]);
+
+  const moveTrack = useCallback(
+    async (direction: -1 | 1) => {
+      const playlist = playlistFor(activeCategoryIdRef.current);
+      if (playlist.length === 0) return;
+      const current = selectedTrackRef.current ?? chooseRandomTrack();
+      const currentIndex = playlist.findIndex((track) => track.id === current.id);
+      if (currentIndex < 0) return;
+      const nextIndex = currentIndex + direction;
+      if (nextIndex < 0 || nextIndex >= playlist.length) return;
+      await goToTrackIndex(nextIndex);
+    },
+    [chooseRandomTrack, goToTrackIndex, playlistFor],
+  );
+
+  const nextTrack = useCallback(() => {
+    if (shuffleRef.current) {
+      void playShuffledNext();
+      return;
+    }
+    void moveTrack(1);
+  }, [moveTrack, playShuffledNext]);
+
   const previousTrack = useCallback(() => moveTrack(-1), [moveTrack]);
+
+  const toggleShuffle = useCallback(() => {
+    const next = !shuffleRef.current;
+    shuffleRef.current = next;
+    setShuffle(next);
+    const track = selectedTrackRef.current;
+    if (track) {
+      persistSelection(
+        track,
+        activeCategoryIdRef.current,
+        audioRef.current?.currentTime ?? 0,
+      );
+    }
+  }, [persistSelection]);
 
   useEffect(() => {
     if (!("mediaSession" in navigator)) return;
@@ -576,8 +802,9 @@ export function useRecordPlayback({
     };
   }, [nextTrack, previousTrack]);
 
+  const playlist = playlistFor(activeCategoryId);
   const currentTrackIndex = currentTrack
-    ? tracks.findIndex((track) => track.id === currentTrack.id)
+    ? playlist.findIndex((track) => track.id === currentTrack.id)
     : -1;
 
   const setScrubLevel = useCallback((level: number) => {
@@ -656,8 +883,9 @@ export function useRecordPlayback({
         crackleRef.current.gain.setValueAtTime(baseline + 0.012, now);
         crackleRef.current.gain.setTargetAtTime(baseline, now + 0.05, 0.14);
       }
+      persistCurrentProgress();
     },
-    [],
+    [persistCurrentProgress],
   );
 
   const beginVinylScrub = useCallback(() => {
@@ -728,6 +956,7 @@ export function useRecordPlayback({
     vinylScrubRateRef.current = 0;
     scratchNodeRef.current?.port.postMessage({ type: "rate", rate: 0 });
     scratchNodeRef.current?.port.postMessage({ type: "stop" });
+    persistCurrentProgress();
 
     const shouldResume = vinylScrubWasPlayingRef.current;
     vinylScrubWasPlayingRef.current = false;
@@ -736,7 +965,7 @@ export function useRecordPlayback({
         void playFromGesture();
       }, 35);
     }
-  }, [playFromGesture]);
+  }, [persistCurrentProgress, playFromGesture]);
 
   const seekTo = useCallback(
     async (seconds: number) => {
@@ -753,12 +982,13 @@ export function useRecordPlayback({
       setScrubLevel(0.42);
       audio.currentTime = clamped;
       setElapsedSeconds(clamped);
+      persistCurrentProgress();
 
       window.setTimeout(() => {
         setScrubLevel(0);
       }, 70);
     },
-    [prepare, setScrubLevel],
+    [persistCurrentProgress, prepare, setScrubLevel],
   );
 
   useEffect(() => {
@@ -779,6 +1009,7 @@ export function useRecordPlayback({
       setPlaying(false);
       muteAuxAudio();
       setSpeed(0);
+      persistCurrentProgress();
     };
     const handleEnded = () => {
       void nextTrack();
@@ -794,13 +1025,36 @@ export function useRecordPlayback({
       audio.removeEventListener("pause", handlePause);
       audio.removeEventListener("ended", handleEnded);
     };
-  }, [clearAwaitingGesture, muteAuxAudio, nextTrack, setSpeed]);
+  }, [
+    clearAwaitingGesture,
+    muteAuxAudio,
+    nextTrack,
+    persistCurrentProgress,
+    setSpeed,
+  ]);
+
+  useEffect(() => {
+    const tick = window.setInterval(() => {
+      persistCurrentProgress();
+    }, 1000);
+
+    const flush = () => persistCurrentProgress();
+    window.addEventListener("pagehide", flush);
+    document.addEventListener("visibilitychange", flush);
+
+    return () => {
+      window.clearInterval(tick);
+      window.removeEventListener("pagehide", flush);
+      document.removeEventListener("visibilitychange", flush);
+    };
+  }, [persistCurrentProgress]);
 
   const bootedRef = useRef(false);
 
   useEffect(() => {
     if (bootedRef.current) return;
     bootedRef.current = true;
+    chooseRandomTrack();
 
     let active = true;
     let detachGestureUnlock: (() => void) | undefined;
@@ -919,12 +1173,17 @@ export function useRecordPlayback({
     rate,
     currentTrack,
     currentTrackIndex,
-    tracks,
+    tracks: playlist,
+    activeCategoryId,
     elapsedSeconds,
     durationSeconds: currentTrack?.durationSeconds ?? 0,
     toggleCenter,
     nextTrack,
     previousTrack,
+    playTrack,
+    enterCategory,
+    shuffle,
+    toggleShuffle,
     goToTrackIndex,
     beginSeekScrub,
     scrubTo,

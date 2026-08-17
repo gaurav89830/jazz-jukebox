@@ -1,7 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { background } from "@/config/player";
+import {
+  background,
+  categories,
+  getTracksByCategory,
+} from "@/config/player";
 import { BackgroundPicture } from "@/components/BackgroundPicture";
 import { SettingsPanel } from "@/components/SettingsPanel";
 import { TrackDial } from "@/components/TrackDial";
@@ -30,14 +34,17 @@ function JazzPlayerContent({ settings, updateSetting }: JazzPlayerContentProps) 
     playing,
     rate,
     currentTrack,
-    currentTrackIndex,
     tracks,
+    activeCategoryId,
     elapsedSeconds,
     durationSeconds,
     toggleCenter,
     nextTrack,
     previousTrack,
-    goToTrackIndex,
+    playTrack,
+    enterCategory,
+    shuffle,
+    toggleShuffle,
     beginSeekScrub,
     scrubTo,
     endSeekScrub,
@@ -53,8 +60,11 @@ function JazzPlayerContent({ settings, updateSetting }: JazzPlayerContentProps) 
   const [isSeeking, setIsSeeking] = useState(false);
   const [seekPreviewSeconds, setSeekPreviewSeconds] = useState(0);
   const [dialVisible, setDialVisible] = useState(false);
+  const [categoriesVisible, setCategoriesVisible] = useState(false);
+  const [focusedCategoryIndex, setFocusedCategoryIndex] = useState(0);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const dialHideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastTrackSkipAtRef = useRef(0);
 
   const bumpDialActivity = useCallback(() => {
     if (dialHideTimerRef.current) {
@@ -64,6 +74,7 @@ function JazzPlayerContent({ settings, updateSetting }: JazzPlayerContentProps) 
     if (!settings.autohideJuke) return;
     dialHideTimerRef.current = setTimeout(() => {
       setDialVisible(false);
+      setCategoriesVisible(false);
     }, 10000);
   }, [settings.autohideJuke]);
 
@@ -78,6 +89,7 @@ function JazzPlayerContent({ settings, updateSetting }: JazzPlayerContentProps) 
       dialHideTimerRef.current = null;
     }
     setDialVisible(false);
+    setCategoriesVisible(false);
   }, []);
 
   const toggleDial = useCallback(() => {
@@ -171,7 +183,9 @@ function JazzPlayerContent({ settings, updateSetting }: JazzPlayerContentProps) 
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.repeat) return;
+      const isVerticalArrow =
+        event.code === "ArrowUp" || event.code === "ArrowDown";
+      if (event.repeat && !isVerticalArrow) return;
 
       if (event.code === "Escape") {
         event.preventDefault();
@@ -204,13 +218,31 @@ function JazzPlayerContent({ settings, updateSetting }: JazzPlayerContentProps) 
 
       if (event.code === "ArrowLeft") {
         event.preventDefault();
-        showDial();
+        if (!dialVisible) {
+          showDial();
+          return;
+        }
+        if (!categoriesVisible) {
+          const index = categories.findIndex(
+            (category) => category.id === activeCategoryId,
+          );
+          setFocusedCategoryIndex(index >= 0 ? index : 0);
+          setCategoriesVisible(true);
+        }
+        bumpDialActivity();
         return;
       }
 
       if (event.code === "ArrowRight") {
         if (!dialVisible) return;
         event.preventDefault();
+        if (categoriesVisible) {
+          const category = categories[focusedCategoryIndex];
+          if (category) enterCategory(category.id);
+          setCategoriesVisible(false);
+          bumpDialActivity();
+          return;
+        }
         hideDial();
         return;
       }
@@ -219,6 +251,13 @@ function JazzPlayerContent({ settings, updateSetting }: JazzPlayerContentProps) 
         if (!dialVisible) return;
         event.preventDefault();
         bumpDialActivity();
+        if (categoriesVisible) {
+          setFocusedCategoryIndex((index) => Math.max(0, index - 1));
+          return;
+        }
+        const now = performance.now();
+        if (event.repeat && now - lastTrackSkipAtRef.current < 90) return;
+        lastTrackSkipAtRef.current = now;
         void previousTrack();
         return;
       }
@@ -227,6 +266,15 @@ function JazzPlayerContent({ settings, updateSetting }: JazzPlayerContentProps) 
         if (!dialVisible) return;
         event.preventDefault();
         bumpDialActivity();
+        if (categoriesVisible) {
+          setFocusedCategoryIndex((index) =>
+            Math.min(categories.length - 1, index + 1),
+          );
+          return;
+        }
+        const now = performance.now();
+        if (event.repeat && now - lastTrackSkipAtRef.current < 90) return;
+        lastTrackSkipAtRef.current = now;
         void nextTrack();
       }
     };
@@ -236,8 +284,12 @@ function JazzPlayerContent({ settings, updateSetting }: JazzPlayerContentProps) 
       window.removeEventListener("keydown", handleKeyDown, { capture: true });
     };
   }, [
+    activeCategoryId,
     bumpDialActivity,
+    categoriesVisible,
     dialVisible,
+    enterCategory,
+    focusedCategoryIndex,
     hideDial,
     nextTrack,
     previousTrack,
@@ -248,6 +300,14 @@ function JazzPlayerContent({ settings, updateSetting }: JazzPlayerContentProps) 
 
   const vinylOnLeft = settings.vinylDisplay === "left";
   const vinylOnRight = settings.vinylDisplay === "right";
+  const focusedCategoryId =
+    categories[focusedCategoryIndex]?.id ?? activeCategoryId;
+  const previewTracks = getTracksByCategory(focusedCategoryId);
+  const displayedTracks =
+    categoriesVisible && previewTracks.length > 0 ? previewTracks : tracks;
+  const displayedIndex = currentTrack
+    ? displayedTracks.findIndex((track) => track.id === currentTrack.id)
+    : -1;
 
   return (
     <div
@@ -377,6 +437,45 @@ function JazzPlayerContent({ settings, updateSetting }: JazzPlayerContentProps) 
             >
               →
             </button>
+            <button
+              type="button"
+              tabIndex={-1}
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={toggleShuffle}
+              className={`track-skip-button ${
+                shuffle ? "track-skip-button--active" : ""
+              }`}
+              aria-label={shuffle ? "Shuffle on" : "Shuffle off"}
+              aria-pressed={shuffle}
+              title={shuffle ? "Shuffle on" : "Shuffle off"}
+            >
+              <svg
+                className="track-skip-button__icon"
+                viewBox="0 0 24 24"
+                fill="none"
+                aria-hidden="true"
+              >
+                <path
+                  d="M3 7h3.2c1.4 0 2.5.7 4.3 2.8M13.5 14.2c1.6 1.9 2.8 2.8 4.3 2.8H21"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                />
+                <path
+                  d="M3 17h3.2c1.4 0 2.5-.7 4.3-2.8M13.5 9.8C15.1 7.9 16.3 7 17.8 7H21"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                />
+                <path
+                  d="M18.2 4.2 21 7l-2.8 2.8M18.2 14.2 21 17l-2.8 2.8"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </button>
           </div>
           <span className="track-time">
             {formatTime(displayedSeconds)} / {formatTime(durationSeconds)}
@@ -403,14 +502,36 @@ function JazzPlayerContent({ settings, updateSetting }: JazzPlayerContentProps) 
       ) : null}
 
       <TrackDial
-        tracks={tracks}
-        currentIndex={currentTrackIndex}
-        playing={playing}
+        tracks={displayedTracks}
+        currentIndex={displayedIndex}
         visible={dialVisible}
+        categories={categories}
+        categoriesVisible={categoriesVisible}
+        focusedCategoryIndex={focusedCategoryIndex}
+        activeCategoryId={activeCategoryId}
+        playingTrackId={currentTrack?.id}
         onActivity={bumpDialActivity}
-        onSelectIndex={(index) => {
+        onSelectTrack={(track) => {
           bumpDialActivity();
-          void goToTrackIndex(index);
+          setCategoriesVisible(false);
+          const categoryId = categoriesVisible
+            ? (categories[focusedCategoryIndex]?.id ?? activeCategoryId)
+            : activeCategoryId;
+          if (track.id !== currentTrack?.id) {
+            void playTrack(track, categoryId);
+            return;
+          }
+          enterCategory(categoryId);
+        }}
+        onFocusCategory={(index) => {
+          bumpDialActivity();
+          if (index === focusedCategoryIndex) {
+            const category = categories[index];
+            if (category) enterCategory(category.id);
+            setCategoriesVisible(false);
+            return;
+          }
+          setFocusedCategoryIndex(index);
         }}
       />
 
